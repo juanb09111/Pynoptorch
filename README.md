@@ -15,3 +15,7 @@ Place all the images in data/
 # Train
 
 Simply run train_ignite.py
+
+# Commit
+
+To commit to this repository please follow smart commit syntax: https://support.atlassian.com/jira-software-cloud/docs/process-issues-with-smart-commits/
