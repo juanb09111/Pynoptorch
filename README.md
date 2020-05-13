@@ -12,7 +12,7 @@ Create temporal folders and image directories. Run from terminal:
 Put your coco annotations file in the root folder as well as label_classes.json provided by hasty.
 Place all the images in data/
 
-# Train with ignite
+# Train with ignite 
 
 Simply run train_ignite.py
 
