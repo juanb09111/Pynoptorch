@@ -3,7 +3,7 @@ Pytorch + panoptic
 
 # Init
 
-Create temporal folders and image directories 
+Create temporal folders and image directories. Run from terminal:
 ```
 ./init.sh
 ```
