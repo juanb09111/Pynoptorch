@@ -40,6 +40,6 @@ def __get_num_bg_classes():
 def get_model():
     models_map = {
         "MaskRCNN": iss_model.get_model(config.NUM_CLASSES),
-        "DeepLab": deeplab_resnet.get_model(__get_num_bg_classes())
+        # "DeepLab": deeplab_resnet.get_model(__get_num_bg_classes())
     }
     return models_map[config.MODEL]
