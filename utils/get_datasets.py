@@ -8,11 +8,6 @@ import torchvision.transforms as transforms
 from PIL import Image
 
 # %%
-f = open(os.path.dirname(__file__) + '/../label_classes.json')
-data = json.load(f)
-categories = list(map(lambda x: x['class_name'], data))
-
-# %%
 
 
 class myOwnDataset(torch.utils.data.Dataset):
@@ -21,6 +16,10 @@ class myOwnDataset(torch.utils.data.Dataset):
         self.transforms = transforms
         self.coco = COCO(annotation)
         self.ids = list(sorted(self.coco.imgs.keys()))
+
+        catIds = self.coco.getCatIds()
+        categories = self.coco.loadCats(catIds)
+        self.categories = list(map(lambda x: x['name'], categories))
 
     def __getitem__(self, index):
         # Own coco file
@@ -57,7 +56,7 @@ class myOwnDataset(torch.utils.data.Dataset):
 
             category_id = coco_annotation[i]['category_id']
             label = coco.cats[category_id]['name']
-            labels.append(categories.index(label) + 1)
+            labels.append(self.categories.index(label) + 1)
 
             area = coco_annotation[i]['bbox'][2] * \
                 coco_annotation[i]['bbox'][3]
