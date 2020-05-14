@@ -11,7 +11,7 @@ DATA = "data/"
 
 
 # If USE_PREEXISTING_DATA_LOADERS is True new data_loaders will not be written
-USE_PREEXISTING_DATA_LOADERS = True
+USE_PREEXISTING_DATA_LOADERS = False
 DATA_LOADER_TRAIN_FILANME = "tmp/data_loaders/data_loader_train.pth"
 DATA_LOADER_VAL_FILENAME = "tmp/data_loaders/data_loader_val.pth"
 
@@ -22,7 +22,7 @@ DATA_LOADER_VAL_FILENAME = "tmp/data_loaders/data_loader_val.pth"
 # into val and train
 # Otherwise you have to split the data set manually into their respective folders:
 # constants.TRAIN_DIR and constants.VAL_DIR
-AUTOMATICALLY_SPLIT_SETS = False
+AUTOMATICALLY_SPLIT_SETS = True
 
 # Set the validation set size. This makes no difference if USE_PREEXISTING_DATA_LOADERS is True
 SPLITS = {"VAL_SIZE": 0.157}
