@@ -8,6 +8,7 @@ MODEL_WEIGHTS_FILENAME_PREFIX = "maskRCNN_weights"
 
 # -------- TRAINING--------------
 DATA = "data/"
+MAX_EPOCHS = 25
 
 
 # If USE_PREEXISTING_DATA_LOADERS is True new data_loaders will not be written
