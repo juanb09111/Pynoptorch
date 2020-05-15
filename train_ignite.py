@@ -4,6 +4,7 @@ from ignite.engine import Events, Engine
 import torch
 from utils import get_datasets
 from evaluate import mean_ap
+from eval_coco import evaluate
 
 import config
 import constants
@@ -28,44 +29,29 @@ def __update_model(_, batch):
     return losses
 
 
-
-def __eval_model():
-    img_results = {}
-    for images, gt_dict in data_loader_val:
-        images = list(img.to(device) for img in images)
-        gt_dict = [{k: v.to(device) for k, v in t.items()}
-                   for t in gt_dict]
-        model.eval()
-        with torch.no_grad():
-            pred_dict = model(images)
-            img_id = gt_dict[0]["image_id"].item()
-            img_results["img_id_{}".format(img_id)] = mean_ap.get_single_image_results(
-                gt_dict[0], pred_dict[0], 0.5)
-
-    precision, recall = mean_ap.calc_precision_recall(img_results)
-    return precision, recall
-
 # %% Define Event listeners
+
 
 def __log_training_loss(trainer_engine):
     batch_loss = trainer_engine.state.output
     state_epoch = trainer_engine.state.epoch
     max_epochs = trainer_engine.state.max_epochs
     i = trainer_engine.state.iteration
-    print("Epoch {}/{} : {} - batch loss: {:.2f}".format(state_epoch, max_epochs, i, batch_loss))
+    print("Epoch {}/{} : {} - batch loss: {:.2f}".format(state_epoch,
+                                                         max_epochs, i, batch_loss))
 
 
 def __log_validation_results(trainer_engine):
+    batch_loss = trainer_engine.state.output
     state_epoch = trainer_engine.state.epoch
     max_epochs = trainer_engine.state.max_epochs
-    precision, recall = __eval_model()
-    weights_path = "{}{}_precision_{}_recall_{}.pth".format(
-        constants.MODELS_LOC, config.MODEL_WEIGHTS_FILENAME_PREFIX, precision, recall)
+    weights_path = "{}{}_loss_{}.pth".format(
+        constants.MODELS_LOC, config.MODEL_WEIGHTS_FILENAME_PREFIX, batch_loss)
     state_dict = model.state_dict()
     torch.save(state_dict, weights_path)
-    print(
-        "Validation Results - Epoch {}/{} precision: {:.2f}, recall: {:.2f}"
-        .format(state_epoch, max_epochs, precision, recall))
+    print("Validation Results - Epoch {}/{} batch_loss: {:.2f}".format(state_epoch,
+                                                                       max_epochs, batch_loss))
+    evaluate(model)
 
 
 if __name__ == "__main__":
@@ -140,6 +126,8 @@ if __name__ == "__main__":
         torch.save(data_loader_val, data_loader_val_filename)
 
     ignite_engine = Engine(__update_model)
-    ignite_engine.add_event_handler(Events.ITERATION_COMPLETED(every=50), __log_training_loss)
-    ignite_engine.add_event_handler(Events.EPOCH_COMPLETED, __log_validation_results)
-    ignite_engine.run(data_loader_train, max_epochs=25)
+    ignite_engine.add_event_handler(
+        Events.ITERATION_COMPLETED(every=50), __log_training_loss)
+    ignite_engine.add_event_handler(
+        Events.EPOCH_COMPLETED, __log_validation_results)
+    ignite_engine.run(data_loader_train, config.MAX_EPOCHS)

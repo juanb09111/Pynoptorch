@@ -69,13 +69,18 @@ def __export_res(model, data_loader_val, output_file, categories):
         json.dump(res, res_file)
 
 
-def main():
+def evaluate(model=None, weights_file=None, data_loader=None):
     """This function performs AP evaluation using coco_eval"""
-    # Get model weights from config
-    weights_file = os.path.join(os.path.dirname(
-        os.path.abspath(__file__)), config.MODEL_WEIGHTS_FILENAME)
-    # Get model corresponding to the one selected in config
-    model = models.get_model()
+    if weights_file is None and model is None:
+        # Get model weights from config
+        weights_file = os.path.join(os.path.dirname(
+            os.path.abspath(__file__)), config.MODEL_WEIGHTS_FILENAME)
+    
+    if model is None:
+        # Get model corresponding to the one selected in config
+        model = models.get_model()
+        # Load model weights
+        model.load_state_dict(torch.load(weights_file))
     # Set device
     device = torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -84,18 +89,17 @@ def main():
     torch.cuda.empty_cache()
     # Model to device
     model.to(device)
-    # Load model weights
-    model.load_state_dict(torch.load(weights_file))
+    
+    if data_loader is None:
+        # Data loader is in constants.DATA_LOADERS_LOC/constants.DATA_LOADER_VAL_FILENAME by default
+        data_loader_val = os.path.join(os.path.dirname(
+            os.path.abspath(__file__)), constants.DATA_LOADERS_LOC, constants.DATA_LOADER_VAL_FILENAME)
 
-    # Data loader is in constants.DATA_LOADERS_LOC/constants.DATA_LOADER_VAL_FILENAME by default
-    data_loader_val = os.path.join(os.path.dirname(
-        os.path.abspath(__file__)), constants.DATA_LOADERS_LOC, constants.DATA_LOADER_VAL_FILENAME)
+        # If DATA_LOADER is None in config then use default dataloader=data_loader_val as defined above
+        data_loader_val = data_loader_val if config.DATA_LOADER is None else config.DATA_LOADER
 
-    # If DATA_LOADER is None in config then use default dataloader=data_loader_val as defined above
-    data_loader_val = data_loader_val if config.DATA_LOADER is None else config.DATA_LOADER
-
-    # Load dataloader
-    data_loader_val = torch.load(data_loader_val)
+        # Load dataloader
+        data_loader_val = torch.load(data_loader_val)
 
     # Annotation file is by default located under
     # constants.COCO_ANN_LOC/constants.ANN_VAL_DEFAULT_NAME
@@ -130,5 +134,5 @@ def main():
         coco_eval.summarize()
 
 if __name__ == "__main__":
-    main()
+    evaluate()
 
