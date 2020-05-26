@@ -2,7 +2,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from depth_wise_conv import depth_wise_conv as dwConv
+from .depth_wise_conv import depth_wise_conv as dwConv
 
 
 def sumLayer(x, y):

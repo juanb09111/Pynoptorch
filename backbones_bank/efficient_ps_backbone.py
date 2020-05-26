@@ -3,15 +3,11 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import torchvision
-from bottleneck_block import bottleneck_block as MBConv
 import math
-from  efficient_net import efficient_net as efficient_net
+from .efficient_net import efficient_net as efficient_net
 
 """The first layer of each
 sequence has a stride s and all others use stride 1"""
-
-DEPTHS = [1, 1, 2, 2, 3, 3, 4, 1, 1]
-
 
 class efficient_ps_backbone(nn.Module):
     def __init__(self, in_channels, width, depth, r):
@@ -67,5 +63,11 @@ class efficient_ps_backbone(nn.Module):
         P32 = F.leaky_relu(self.P32(b_up1 + t_down4))
         return x, P4, P8, P16, P32
 
+
+images = torch.rand((2, 3, 800, 800))
+model = efficient_ps_backbone(3, 1.6, 2.2, 456)
+print(model)
+x, P4, P8, P16, P32 = model(images)
+print(x.shape, P4.shape, P8.shape, P16.shape, P32.shape)
 # %%
 

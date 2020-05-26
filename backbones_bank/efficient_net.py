@@ -3,7 +3,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import torchvision
-from bottleneck_block import bottleneck_block as MBConv
+from .bottleneck_block import bottleneck_block as MBConv
 import math
 
 """The first layer of each
