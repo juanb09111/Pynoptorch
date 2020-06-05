@@ -9,7 +9,7 @@ class box_predictor(nn.Module):
     def __init__(self, in_channels, num_classes):
         super().__init__()
         
-        self.cls_score = nn.Linear(in_channels, num_classes + 1)
+        self.cls_score = nn.Linear(in_channels, num_classes)
 
         self.bbox_pred = nn.Linear(in_channels, num_classes * 4)
 
