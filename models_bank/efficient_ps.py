@@ -23,8 +23,7 @@ class EfficientPS(nn.Module):
             num_ins_classes + num_sem_classes + 1, (1200, 1920))
 
         self.rpn = RPN(256)
-        # TODO: instance classes are not 7, this should be done parametrically 
-        self.roi_pool = roi_heads(7)
+        self.roi_pool = roi_heads(num_ins_classes + 1)
 
         for module in self.children():
             if self.training:
@@ -43,6 +42,7 @@ class EfficientPS(nn.Module):
                                     ('P8', P8),
                                     ('P16', P16),
                                     ('P32', P32)])
+                                    
         image_list = ImageList(images, [x.shape[1:] for x in images])
         image_sizes = [x.shape[1:] for x in images]
 
@@ -69,32 +69,20 @@ class EfficientPS(nn.Module):
             return semantic_logits, roi_result
 
 
-data_loader_val = torch.load(config.DATA_LOADER_VAL_FILENAME)
+# data_loader_val = torch.load(config.DATA_LOADER_VAL_FILENAME)
 
-iterator = iter(data_loader_val)
+# iterator = iter(data_loader_val)
 
-images, anns = next(iterator)
+# images, anns = next(iterator)
 
-images = tensorize_batch(images)
+# images = tensorize_batch(images)
 
-model = EfficientPS(256, 7, 1)
-model.train()
-losses = model(images, anns=anns)
-print(losses)
-# losses = model(images, targets=anns)
-# print(losses)
-# losses['semantic_loss'].backward()
-
-# feature_maps = OrderedDict([('P4', torch.rand((2, 256,256,512))), ('P8', torch.rand((2, 256,128,256))), ('P16', torch.rand((2, 256,64,128))), ('P32', torch.rand((2, 256,32,64)))])
-
-# image_sizes = [x.shape[1:] for x in images]
-
-# boxes = [torch.rand((2000, 4)), torch.rand(2000, 4)]
-
-# model = roi_heads(7)
-
+# model = EfficientPS(256, 7, 1)
 # model.train()
-# result, losses = model(feature_maps, boxes, image_sizes, targets=anns)
+# losses = model(images, anns=anns)
+# print(losses)
 
-# print(result, losses)
+# model.eval()
+# semantic_logits, roi_result = model(images)
+
 
