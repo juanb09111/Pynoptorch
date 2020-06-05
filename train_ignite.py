@@ -3,6 +3,7 @@ import os.path
 from ignite.engine import Events, Engine
 import torch
 from utils import get_datasets
+from utils.tensorize_batch import tensorize_batch
 from evaluate import mean_ap
 from eval_coco import evaluate
 
@@ -12,17 +13,17 @@ import models
 import map_hasty
 import get_splits
 
-
 # %%
 
 def __update_model(_, batch):
     model.train()
     optimizer.zero_grad()
     imgs, annotations = batch[0], batch[1]
-    imgs = list(img.to(device) for img in imgs)
+    imgs = list(img for img in imgs)
+    imgs = tensorize_batch(imgs, device)
     annotations = [{k: v.to(device) for k, v in t.items()}
                    for t in annotations]
-    loss_dict = model(imgs, annotations)
+    loss_dict = model(imgs, anns=annotations)
     losses = sum(loss for loss in loss_dict.values())
     losses.backward()
     optimizer.step()
@@ -55,18 +56,21 @@ def __log_validation_results(trainer_engine):
 
 
 if __name__ == "__main__":
-
-    # Get model according to config
-    model = models.get_model()
+    
     # Set device
     device = torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
     print("Device: ", device)
+    config.DEVICE = device
     # Empty cuda cache
     torch.cuda.empty_cache()
+
+    # Get model according to config
+    model = models.get_model()
     # move model to the right device
     model.to(device)
 
+    print(torch.cuda.memory_allocated(device=device))
     # Define params
     params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.SGD(
@@ -110,10 +114,10 @@ if __name__ == "__main__":
             os.path.abspath(__file__)), val_ann_filename)
 
         data_loader_train = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, train_dir, coco_ann_train)
+            config.BATCH_SIZE, train_dir, coco_ann_train, semantic_masks_folder="semantic_segmentation_data")
 
         data_loader_val = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, val_dir, coco_ann_val)
+            config.BATCH_SIZE, val_dir, coco_ann_val, semantic_masks_folder="semantic_segmentation_data")
 
         # save data loaders
         data_loader_train_filename = os.path.join(os.path.dirname(
