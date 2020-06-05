@@ -36,10 +36,6 @@ class RPN(nn.Module):
 
     def forward(self, images, features, targets=None):
 
-        if self.training:
-            print('rpn training mode')
-        else:
-            print('rpn eval mode')
         proposals, proposal_losses = self.rpn(images, features, targets)
         return proposals, proposal_losses
 
