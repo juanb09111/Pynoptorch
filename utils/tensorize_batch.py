@@ -7,6 +7,6 @@ def tensorize_batch(batch):
     res = torch.zeros(batch_size, *sample.shape)
 
     for i in range(batch_size):
-        res[i] = torch.tensor(batch[i])
+        res[i] = batch[i].clone().detach()
 
     return res
