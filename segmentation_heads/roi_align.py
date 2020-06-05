@@ -20,7 +20,7 @@ class RoiAlign(nn.Module):
 
     def forward(self, featmap_dict, boxes, image_sizes):
         x = self.roi_pooler(featmap_dict, boxes, image_sizes)
-        print("roialign x. shape", x.shape)
+        
         return x
 
 
