@@ -7,10 +7,10 @@ from .LSFE import LSFE
 from .DPC import DPC 
 from .MC import MC
 #%%
-class segmentation_head(nn.Module):
+class instance_segmentation_head(nn.Module):
     def __init__(self, in_channels, num_classes, output_resol):
         super().__init__()
-        
+
         self.output_resol = output_resol
 
         self.LSFE_P4 = LSFE(in_channels, 128)
@@ -21,7 +21,7 @@ class segmentation_head(nn.Module):
 
         self.MC1 = MC(128, 128)
         self.MC2 = MC(128, 128)
-        # num_classes = N ‘stuff’+‘thing’
+
         self.out_conv = nn.Conv2d(512, num_classes, kernel_size=1)
 
     def forward(self, P4, P8, P16, P32):
@@ -59,12 +59,3 @@ class segmentation_head(nn.Module):
         x = F.interpolate(x, size=self.output_resol)
         return x
 
-
-# P4 = torch.rand((2, 256, 256, 512))
-# P8 = torch.rand((2, 256, 128, 256))
-# P16 = torch.rand((2, 256, 64, 128))
-# P32 = torch.rand((2, 256, 32, 64))
-# model = segmentation_head(256, 10, (1024, 2048))
-# print(model)
-# x = model(P4, P8, P16, P32)
-# print(x.shape)
