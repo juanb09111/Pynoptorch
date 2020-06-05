@@ -5,6 +5,7 @@ import json
 import os.path
 import numpy as np
 import torch
+from utils.tensorize_batch import tensorize_batch
 from pycocotools import mask, cocoeval
 from pycocotools.coco import COCO
 import models
@@ -14,10 +15,10 @@ import config
 def __results_to_json(model, data_loader_val, categories):
     device = torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
-    print(device)
     res = []
     for images, anns in data_loader_val:
-        images = list(img.to(device) for img in images)
+        images = list(img for img in images)
+        images = tensorize_batch(images, device)
 
         model.eval()
 
@@ -57,6 +58,7 @@ def __results_to_json(model, data_loader_val, categories):
                             bbox_coco = [int(bbox[0]), int(bbox[1]), int(
                                 bbox[2]) - int(bbox[0]), int(bbox[3]) - int(bbox[1])]
                             obj['bbox'] = bbox_coco
+                            obj['area'] = int(bbox[2] - bbox[0])*(bbox[3] - bbox[1])
 
                         res.append(obj)
         torch.cuda.empty_cache()
