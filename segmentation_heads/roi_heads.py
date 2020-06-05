@@ -39,13 +39,6 @@ class roi_heads(nn.Module):
         m_head = mask_head(backbone_out_channels)
         m_predictor = mask_predictor(backbone_out_channels, num_thing_classes)
 
-        for module in self.children():
-            if self.training:
-                module.training = True
-            else:
-                module.training = False
-
-        
         self.heads = RoIHeads(box_roi_pool, bbox_head, bbox_predictor,
                               box_fg_iou_thresh, box_bg_iou_thresh,
                               box_batch_size_per_image, box_positive_fraction,
@@ -59,23 +52,23 @@ class roi_heads(nn.Module):
         return result, losses
 
 
-feature_maps = OrderedDict([('P4', torch.rand((2, 256,256,512))), ('P8', torch.rand((2, 256,128,256))), ('P16', torch.rand((2, 256,64,128))), ('P32', torch.rand((2, 256,32,64)))])
+# feature_maps = OrderedDict([('P4', torch.rand((2, 256,256,512))), ('P8', torch.rand((2, 256,128,256))), ('P16', torch.rand((2, 256,64,128))), ('P32', torch.rand((2, 256,32,64)))])
 
-data_loader_train = torch.load(config.DATA_LOADER_TRAIN_FILANME)
-data_loader_val = torch.load(config.DATA_LOADER_VAL_FILENAME)
+# data_loader_train = torch.load(config.DATA_LOADER_TRAIN_FILANME)
+# data_loader_val = torch.load(config.DATA_LOADER_VAL_FILENAME)
 
-iterator = iter(data_loader_val)
+# iterator = iter(data_loader_val)
 
-images, anns = next(iterator)
+# images, anns = next(iterator)
 
-images = tensorize_batch(images)
-image_sizes = [x.shape[1:] for x in images]
+# images = tensorize_batch(images)
+# image_sizes = [x.shape[1:] for x in images]
 
-boxes = [torch.rand((2000, 4)), torch.rand(2000, 4)]
+# boxes = [torch.rand((2000, 4)), torch.rand(2000, 4)]
 
-model = roi_heads(7)
-model.train()
-result, losses = model(feature_maps, boxes, image_sizes, targets=anns)
+# model = roi_heads(9)
+# model.train()
+# result, losses = model(feature_maps, boxes, image_sizes, targets=anns)
 
 # print(result, losses)
 
