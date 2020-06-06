@@ -1,18 +1,19 @@
 # All dirs relative to root
 NUM_CLASSES = 8
 BATCH_SIZE = 2
-MODEL = "MaskRCNN"
+MODEL = "EfficientPS"
+# MODEL = "MaskRCNN"
 # MODEL = "DeepLab"
 # MODEL_WEIGHTS_FILENAME_PREFIX = "deepLab_weights"
-MODEL_WEIGHTS_FILENAME_PREFIX = "maskRCNN_weights"
-
+MODEL_WEIGHTS_FILENAME_PREFIX = "EfficientPS_weights"
+DEVICE = None
 # -------- TRAINING--------------
 DATA = "data/"
 MAX_EPOCHS = 25
 
 
 # If USE_PREEXISTING_DATA_LOADERS is True new data_loaders will not be written
-USE_PREEXISTING_DATA_LOADERS = False
+USE_PREEXISTING_DATA_LOADERS = True
 DATA_LOADER_TRAIN_FILANME = "tmp/data_loaders/data_loader_train.pth"
 DATA_LOADER_VAL_FILENAME = "tmp/data_loaders/data_loader_val.pth"
 
@@ -23,7 +24,7 @@ DATA_LOADER_VAL_FILENAME = "tmp/data_loaders/data_loader_val.pth"
 # into val and train
 # Otherwise you have to split the data set manually into their respective folders:
 # constants.TRAIN_DIR and constants.VAL_DIR
-AUTOMATICALLY_SPLIT_SETS = True
+AUTOMATICALLY_SPLIT_SETS = False
 
 # Set the validation set size. This makes no difference if USE_PREEXISTING_DATA_LOADERS is True
 SPLITS = {"VAL_SIZE": 0.157}

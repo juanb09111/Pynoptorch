@@ -10,7 +10,7 @@ from .efficient_net import efficient_net as efficient_net
 sequence has a stride s and all others use stride 1"""
 
 class efficient_ps_backbone(nn.Module):
-    def __init__(self, in_channels, width, depth, r):
+    def __init__(self, width, depth, r):
         super().__init__()
 
         self.resolution = r
@@ -41,7 +41,7 @@ class efficient_ps_backbone(nn.Module):
     def forward(self, x):
         
         
-        x = F.interpolate(x, size=self.resolution)
+        # x = F.interpolate(x, size=self.resolution)
         x, out_3, out_4, out_6, out_9  = self.efficien_net(x)
        
         # BOTTOM UP
@@ -63,5 +63,11 @@ class efficient_ps_backbone(nn.Module):
         P32 = F.leaky_relu(self.P32(b_up1 + t_down4))
         return x, P4, P8, P16, P32
 
-# %%
 
+# images = torch.rand((2, 3, 2048, 1024))
+# # model = efficient_ps_backbone(1.6, 2.2, 456)
+# model = efficient_ps_backbone(1.6, 2.2, (1024, 512))
+# print(model)
+# x, P4, P8, P16, P32 = model(images)
+# print(x.shape, P4.shape, P8.shape, P16.shape, P32.shape)
+# %%

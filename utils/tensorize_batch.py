@@ -1,12 +1,12 @@
 import torch
 
-def tensorize_batch(batch):
+def tensorize_batch(batch, device):
     batch_size= len(batch)
     sample = batch[0]
 
     res = torch.zeros(batch_size, *sample.shape)
 
     for i in range(batch_size):
-        res[i] = torch.tensor(batch[i])
+        res[i] = batch[i].to(device)
 
-    return res
+    return res.to(device)

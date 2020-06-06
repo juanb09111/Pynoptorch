@@ -6,17 +6,17 @@ import torch
 from pycocotools.coco import COCO
 import torchvision.transforms as transforms
 from PIL import Image
-
+import numpy as np
 # %%
 
 
 class myOwnDataset(torch.utils.data.Dataset):
-    def __init__(self, root, annotation, transforms=None):
+    def __init__(self, root, annotation, transforms=None, semantic_masks_folder=None):
         self.root = root
         self.transforms = transforms
         self.coco = COCO(annotation)
         self.ids = list(sorted(self.coco.imgs.keys()))
-
+        self.semantic_masks_folder = semantic_masks_folder
         catIds = self.coco.getCatIds()
         categories = self.coco.loadCats(catIds)
         self.categories = list(map(lambda x: x['name'], categories))
@@ -34,7 +34,11 @@ class myOwnDataset(torch.utils.data.Dataset):
         path = coco.loadImgs(img_id)[0]['file_name']
         # open the input image
         img = Image.open(os.path.join(self.root, path))
-
+        
+        # create semantic mask
+        if self.semantic_masks_folder is not None:
+            semantic_mask = Image.open(os.path.join(self.semantic_masks_folder, path + ".png"))
+            semantic_mask = np.array(semantic_mask)
         # number of objects in the image
         num_objs = len(coco_annotation)
 
@@ -73,6 +77,8 @@ class myOwnDataset(torch.utils.data.Dataset):
         areas = torch.as_tensor(areas, dtype=torch.float32)
         labels = torch.as_tensor(labels, dtype=torch.int64)
         masks = torch.as_tensor(masks, dtype=torch.uint8)
+
+        
         # Tensorise img_id
         img_id = torch.tensor([img_id])
         # Iscrowd
@@ -89,6 +95,10 @@ class myOwnDataset(torch.utils.data.Dataset):
         my_annotation["iscrowd"] = iscrowd
         my_annotation['masks'] = masks
         my_annotation["category_ids"] = category_ids
+
+        if self.semantic_masks_folder is not None:
+            semantic_mask = torch.as_tensor(semantic_mask, dtype=torch.uint8)
+            my_annotation["semantic_mask"] = semantic_mask
 
         if self.transforms is not None:
             img = self.transforms(img)
@@ -110,12 +120,13 @@ def get_transform():
 
 # create own Dataset
 
-def get_datasets(root, annotation, split = False, val_size=0.20):
+def get_datasets(root, annotation, split = False, val_size=0.20, semantic_masks_folder=None):
     
 
     my_dataset = myOwnDataset(root=root,
                               annotation=annotation,
-                              transforms=get_transform()
+                              transforms=get_transform(),
+                              semantic_masks_folder=semantic_masks_folder
                               )
     if split:
         if val_size >= 1:
@@ -138,10 +149,12 @@ def collate_fn(batch):
 
 
 
-def get_dataloaders(batch_size, root, annotation, split = False, val_size=0.20):
+def get_dataloaders(batch_size, root, annotation, split = False, val_size=0.20, semantic_masks_folder=None):
     if split:
         train_set, val_set = get_datasets(root=root,
-                                        annotation=annotation, split= split, val_size = val_size)
+                                        annotation=annotation, 
+                                        split=split, val_size=val_size,
+                                        semantic_masks_folder=semantic_masks_folder)
         data_loader_train = torch.utils.data.DataLoader(train_set,
                                                         batch_size=batch_size,
                                                         shuffle=True,
@@ -157,7 +170,7 @@ def get_dataloaders(batch_size, root, annotation, split = False, val_size=0.20):
                                                     drop_last=True)
         return data_loader_train, data_loader_val
     else:
-        dataset = get_datasets(root=root, annotation=annotation)
+        dataset = get_datasets(root=root, annotation=annotation, semantic_masks_folder=semantic_masks_folder)
         data_loader = torch.utils.data.DataLoader(dataset,
                                                     batch_size=batch_size,
                                                     shuffle=True,
