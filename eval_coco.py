@@ -58,7 +58,6 @@ def __results_to_json(model, data_loader_val, categories):
                             bbox_coco = [int(bbox[0]), int(bbox[1]), int(
                                 bbox[2]) - int(bbox[0]), int(bbox[3]) - int(bbox[1])]
                             obj['bbox'] = bbox_coco
-                            obj['area'] = int(bbox[2] - bbox[0])*(bbox[3] - bbox[1])
 
                         res.append(obj)
         torch.cuda.empty_cache()
