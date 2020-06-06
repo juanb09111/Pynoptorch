@@ -40,7 +40,11 @@ def __get_num_bg_classes():
 def get_model():
     models_map = {
         "MaskRCNN": iss_model.get_model(config.NUM_CLASSES),
-        "EfficientPS": EfficientPS(256, 7, 0)
+        "EfficientPS": EfficientPS(config.BACKBONE, 
+            config.BACKBONE_OUT_CHANNELS, 
+            config.NUM_THING_CLASSES, 
+            config.NUM_STUFF_CLASSES, 
+            config.ORIGINAL_INPUT_SIZE_HW)
         # "DeepLab": deeplab_resnet.get_model(__get_num_bg_classes())
     }
     return models_map[config.MODEL]
