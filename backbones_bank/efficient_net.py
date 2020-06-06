@@ -127,5 +127,44 @@ class efficient_net(nn.Module):
             if i == 2:
                 out_3 = F.leaky_relu(self.out_3(x))
 
-        
         return x, out_3, out_4, out_6, out_9
+
+
+def EfficientNetB0(original_aspect_ratio):
+    resol = (math.floor(224*original_aspect_ratio), 224)
+    return efficient_net(3, 1, 1, resol)
+
+
+def EfficientNetB1(original_aspect_ratio):
+    resol = (math.floor(240*original_aspect_ratio), 240)
+    return efficient_net(3, 1.0, 1.1, resol)
+
+
+def EfficientNetB2(original_aspect_ratio):
+    resol = (math.floor(260*original_aspect_ratio), 260)
+    return efficient_net(3, 1.1, 1.2, resol)
+
+
+def EfficientNetB3(original_aspect_ratio):
+    resol = (math.floor(300*original_aspect_ratio), 300)
+    return efficient_net(3, 1.2, 1.4, resol)
+
+
+def EfficientNetB4(original_aspect_ratio):
+    resol = (math.floor(380*original_aspect_ratio), 380)
+    return efficient_net(3, 1.4, 1.8, resol)
+
+
+def EfficientNetB5(original_aspect_ratio):
+    resol = (math.floor(456*original_aspect_ratio), 456)
+    return efficient_net(3, 1.6, 2.2, resol)
+
+
+def EfficientNetB6(original_aspect_ratio):
+    resol = (math.floor(528*original_aspect_ratio), 528)
+    return efficient_net(3, 1.8, 2.6, resol)
+
+
+def EfficientNetB7(original_aspect_ratio):
+    resol = (math.floor(600*original_aspect_ratio), 600)
+    return efficient_net(3, 2.0, 3.1, resol)
