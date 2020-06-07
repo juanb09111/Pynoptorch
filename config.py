@@ -9,7 +9,7 @@ MODEL_WEIGHTS_FILENAME_PREFIX = "EfficientPS_weights"
 DEVICE = None
 
 # When using EfficientPS define:
-BACKBONE = "EfficientNetB6"
+BACKBONE = "EfficientNetB2"
 BACKBONE_OUT_CHANNELS = 256
 NUM_THING_CLASSES = 7
 NUM_STUFF_CLASSES = 1
