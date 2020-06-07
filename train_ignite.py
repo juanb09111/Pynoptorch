@@ -15,6 +15,7 @@ import get_splits
 
 # %%
 
+
 def __update_model(_, batch):
     model.train()
     optimizer.zero_grad()
@@ -53,10 +54,11 @@ def __log_validation_results(trainer_engine):
     print("Validation Results - Epoch {}/{} batch_loss: {:.2f}".format(state_epoch,
                                                                        max_epochs, batch_loss))
     evaluate(model)
+    torch.cuda.empty_cache()
 
 
 if __name__ == "__main__":
-    
+
     # Set device
     device = torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
