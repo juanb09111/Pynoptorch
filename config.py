@@ -7,6 +7,14 @@ MODEL = "EfficientPS"
 # MODEL_WEIGHTS_FILENAME_PREFIX = "deepLab_weights"
 MODEL_WEIGHTS_FILENAME_PREFIX = "EfficientPS_weights"
 DEVICE = None
+
+# When using EfficientPS define:
+BACKBONE = "EfficientNetB2"
+BACKBONE_OUT_CHANNELS = 256
+NUM_THING_CLASSES = 7
+NUM_STUFF_CLASSES = 1
+ORIGINAL_INPUT_SIZE_HW = (1200, 1920)
+
 # -------- TRAINING--------------
 DATA = "data/"
 MAX_EPOCHS = 25
