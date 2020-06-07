@@ -95,6 +95,9 @@ class myOwnDataset(torch.utils.data.Dataset):
 
         category_ids = torch.as_tensor(category_ids, dtype=torch.int64)
 
+        #Num of instance objects
+        num_objs = torch.as_tensor(num_objs, dtype=torch.int64)
+
         # Annotation is in dictionary format
         my_annotation = {}
         my_annotation["boxes"] = boxes
@@ -104,6 +107,7 @@ class myOwnDataset(torch.utils.data.Dataset):
         my_annotation["iscrowd"] = iscrowd
         my_annotation['masks'] = masks
         my_annotation["category_ids"] = category_ids
+        my_annotation["num_instances"] = num_objs
 
         if self.semantic_masks_folder is not None:
             semantic_mask = torch.as_tensor(semantic_mask, dtype=torch.uint8)
