@@ -70,7 +70,7 @@ class myOwnDataset(torch.utils.data.Dataset):
             category_id = coco_annotation[i]['category_id']
             label = coco.cats[category_id]['name']
             labels.append(self.obj_categories.index(label) + 1)
-
+            # TODO: Coco does not calculate area like this, This is only a quick fix for hasty anns area=0
             area = coco_annotation[i]['bbox'][2] * \
                 coco_annotation[i]['bbox'][3]
             areas.append(area)
