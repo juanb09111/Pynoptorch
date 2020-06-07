@@ -85,7 +85,6 @@ def evaluate(model=None, weights_file=None, data_loader_val=None):
     # Set device
     device = torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
-    print(device)
     # Empty cache
     torch.cuda.empty_cache()
     # Model to device
@@ -107,16 +106,13 @@ def evaluate(model=None, weights_file=None, data_loader_val=None):
     val_ann_filename = os.path.join(os.path.dirname(
         os.path.abspath(__file__)), constants.COCO_ANN_LOC, constants.ANN_VAL_DEFAULT_NAME_OBJ)
 
-    # Use default annotation file if config.COCO_ANN_VAL is None
-    # and use config.COCO_ANN_VAL otherwise
-    ann_file = val_ann_filename if config.COCO_ANN_VAL is None else config.COCO_ANN_VAL
-
+        
     # Make coco api from annotation file
-    coco_gt = COCO(ann_file)
+    coco_gt = COCO(val_ann_filename)
 
     # Get categories
     categories = list(coco_gt.cats)
-
+    
     # res_filename will contain the predictions to be used later for evaluation
     res_filename = constants.COCO_RES_JSON_FILENAME
     # Export the predictions as a json file
