@@ -53,7 +53,7 @@ def __log_validation_results(trainer_engine):
     torch.save(state_dict, weights_path)
     print("Validation Results - Epoch {}/{} batch_loss: {:.2f}".format(state_epoch,
                                                                        max_epochs, batch_loss))
-    evaluate(model)
+    evaluate(model=model, weights_file=weights_path, data_loader_val=data_loader_val)
     torch.cuda.empty_cache()
 
 

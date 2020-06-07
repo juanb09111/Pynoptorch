@@ -70,7 +70,7 @@ def __export_res(model, data_loader_val, output_file, categories):
         json.dump(res, res_file)
 
 
-def evaluate(model=None, weights_file=None, data_loader=None):
+def evaluate(model=None, weights_file=None, data_loader_val=None):
     """This function performs AP evaluation using coco_eval"""
     if weights_file is None and model is None:
         # Get model weights from config
@@ -91,7 +91,7 @@ def evaluate(model=None, weights_file=None, data_loader=None):
     # Model to device
     model.to(device)
     
-    if data_loader is None:
+    if data_loader_val is None:
         # Data loader is in constants.DATA_LOADERS_LOC/constants.DATA_LOADER_VAL_FILENAME by default
         data_loader_val = os.path.join(os.path.dirname(
             os.path.abspath(__file__)), constants.DATA_LOADERS_LOC, constants.DATA_LOADER_VAL_FILENAME)
@@ -105,7 +105,7 @@ def evaluate(model=None, weights_file=None, data_loader=None):
     # Annotation file is by default located under
     # constants.COCO_ANN_LOC/constants.ANN_VAL_DEFAULT_NAME
     val_ann_filename = os.path.join(os.path.dirname(
-        os.path.abspath(__file__)), constants.COCO_ANN_LOC, constants.ANN_VAL_DEFAULT_NAME)
+        os.path.abspath(__file__)), constants.COCO_ANN_LOC, constants.ANN_VAL_DEFAULT_NAME_OBJ)
 
     # Use default annotation file if config.COCO_ANN_VAL is None
     # and use config.COCO_ANN_VAL otherwise

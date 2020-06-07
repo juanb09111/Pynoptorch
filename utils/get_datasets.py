@@ -21,15 +21,23 @@ class myOwnDataset(torch.utils.data.Dataset):
         categories = self.coco.loadCats(catIds)
         self.categories = list(map(lambda x: x['name'], categories))
 
+        self.bg_categories_ids = self.coco.getCatIds(supNms="background")
+        bg_categories = self.coco.loadCats(self.bg_categories_ids)
+        self.bg_categories = list(map(lambda x: x['name'], bg_categories))
+
+        self.obj_categories_ids = self.coco.getCatIds(supNms="object")
+        obj_categories = self.coco.loadCats(self.obj_categories_ids)
+        self.obj_categories = list(map(lambda x: x['name'], obj_categories))
+
     def __getitem__(self, index):
         # Own coco file
         coco = self.coco
         # Image ID
         img_id = self.ids[index]
-        # List: get annotation id from coco
-        ann_ids = coco.getAnnIds(imgIds=img_id)
-        # Dictionary: target coco_annotation file for an image
-        coco_annotation = coco.loadAnns(ann_ids)
+        # List: get object annotations ids from coco
+        obj_ann_ids = coco.getAnnIds(imgIds=img_id, catIds=self.obj_categories_ids)
+        # Dictionary: target coco_annotation file for an image containing only object classes
+        coco_annotation = coco.loadAnns(obj_ann_ids)
         # path for input image
         path = coco.loadImgs(img_id)[0]['file_name']
         # open the input image
@@ -52,6 +60,7 @@ class myOwnDataset(torch.utils.data.Dataset):
         masks = []
         category_ids = []
         for i in range(num_objs):
+
             xmin = coco_annotation[i]['bbox'][0]
             ymin = coco_annotation[i]['bbox'][1]
             xmax = xmin + coco_annotation[i]['bbox'][2]
@@ -60,7 +69,7 @@ class myOwnDataset(torch.utils.data.Dataset):
 
             category_id = coco_annotation[i]['category_id']
             label = coco.cats[category_id]['name']
-            labels.append(self.categories.index(label) + 1)
+            labels.append(self.obj_categories.index(label) + 1)
 
             area = coco_annotation[i]['bbox'][2] * \
                 coco_annotation[i]['bbox'][3]

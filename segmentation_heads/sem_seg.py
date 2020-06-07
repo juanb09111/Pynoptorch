@@ -10,7 +10,7 @@ from .MC import MC
 class segmentation_head(nn.Module):
     def __init__(self, in_channels, num_classes, output_resol):
         super().__init__()
-        
+        print("sem classes", num_classes)
         self.output_resol = output_resol
 
         self.LSFE_P4 = LSFE(in_channels, 128)
@@ -56,7 +56,7 @@ class segmentation_head(nn.Module):
 
         x = self.out_conv(x)
 
-        x = F.interpolate(x, size=self.output_resol)
+        x = F.interpolate(x, size=self.output_resol, mode="bilinear")
         return x
 
 
