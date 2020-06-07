@@ -21,13 +21,58 @@ def __update_model(_, batch):
     optimizer.zero_grad()
     imgs, annotations = batch[0], batch[1]
     imgs = list(img for img in imgs)
-    imgs = tensorize_batch(imgs, device)
-    annotations = [{k: v.to(device) for k, v in t.items()}
-                   for t in annotations]
-    loss_dict = model(imgs, anns=annotations)
-    losses = sum(loss for loss in loss_dict.values())
-    losses.backward()
-    optimizer.step()
+    # imgs = tensorize_batch(imgs, device)
+    # annotations = [{k: v.to(device) for k, v in t.items()}
+    #                for t in annotations]
+
+    # Array idexes of anns with no instance annotations
+    no_instance_anns_idx = []
+    # Array idexes of anns with instance annotations
+    instance_anns_idx = []
+    for idx, ann in enumerate(annotations):
+        if ann["num_instances"] == 0:
+            no_instance_anns_idx.append(idx)
+        else:
+            instance_anns_idx.append(idx)
+
+    losses = 0
+    if len(no_instance_anns_idx) > 0:
+        # For anns without instance anns deactivate instance branch
+        anns = [annotations[idx] for idx in no_instance_anns_idx]
+        no_instance_imgs = [imgs[idx] for idx in no_instance_anns_idx]
+
+        no_instance_imgs = tensorize_batch(no_instance_imgs, device)
+        anns = [{k: v.to(device) for k, v in t.items()}
+                for t in anns]
+
+        loss_dict = model(no_instance_imgs, anns=anns, instance=False)
+        losses = sum(loss for loss in loss_dict.values())
+        losses.backward()
+        optimizer.step()
+
+        if len(no_instance_anns_idx) < len(annotations):
+             # For the rest of anns with instance anns activate instance branch
+            anns = [annotations[idx] for idx in instance_anns_idx]
+            instance_imgs = [imgs[idx] for idx in instance_anns_idx]
+
+            instance_imgs = tensorize_batch(no_instance_imgs, device)
+            anns = [{k: v.to(device) for k, v in t.items()}
+                    for t in anns]
+
+            loss_dict = model(instance_imgs, anns=anns)
+            losses = sum(loss for loss in loss_dict.values())
+            losses.backward()
+            optimizer.step()
+    else:
+        # If no "no instance anns" then run model with both semantic and instance branch active
+        imgs = tensorize_batch(imgs, device)
+        annotations = [{k: v.to(device) for k, v in t.items()}
+                       for t in annotations]
+        loss_dict = model(imgs, anns=annotations)
+        losses = sum(loss for loss in loss_dict.values())
+        losses.backward()
+        optimizer.step()
+
     return losses
 
 
@@ -53,7 +98,8 @@ def __log_validation_results(trainer_engine):
     torch.save(state_dict, weights_path)
     print("Validation Results - Epoch {}/{} batch_loss: {:.2f}".format(state_epoch,
                                                                        max_epochs, batch_loss))
-    evaluate(model=model, weights_file=weights_path, data_loader_val=data_loader_val)
+    evaluate(model=model, weights_file=weights_path,
+             data_loader_val=data_loader_val)
     torch.cuda.empty_cache()
 
 
@@ -97,6 +143,8 @@ if __name__ == "__main__":
         train_ann_filename = train_ann_filename if config.COCO_ANN_TRAIN is None else config.COCO_ANN_TRAIN
         val_ann_filename = val_ann_filename if config.COCO_ANN_VAL is None else config.COCO_ANN_VAL
         # overwrite config
+
+        #TODO: Next two lines may not be necesary
         config.COCO_ANN_VAL = val_ann_filename
         config.COCO_ANN_TRAIN = train_ann_filename
         # write annotations json files for every split
