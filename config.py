@@ -17,6 +17,7 @@ ORIGINAL_INPUT_SIZE_HW = (1200, 1920)
 
 # -------- TRAINING--------------
 DATA = "data/"
+SEMANTIC_SEGMENTATION_DATA: "semantic_segmentation_data"
 MAX_EPOCHS = 25
 
 
@@ -51,7 +52,7 @@ COCO_ANN_VAL = None
 # --------EVALUATION---------------
 
 # Set the model weights to be used for evaluation
-MODEL_WEIGHTS_FILENAME = "tmp/models/maskRCNN_weights_bg_precision_0.53_recall_0.81.pth"
+MODEL_WEIGHTS_FILENAME = "tmp/models/EfficientPS_weights_loss_1.9355370998382568.pth"
 # Set the data loader to be used for evaluation. This can be set to None to use default filename
 DATA_LOADER = None
 # DATA_LOADER = "tmp/data_loaders/data_loader_val_bg.pth"
