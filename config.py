@@ -11,17 +11,18 @@ DEVICE = None
 # When using EfficientPS define:
 BACKBONE = "EfficientNetB2"
 BACKBONE_OUT_CHANNELS = 256
-NUM_THING_CLASSES = 7
+NUM_THING_CLASSES = 6
 NUM_STUFF_CLASSES = 1
 ORIGINAL_INPUT_SIZE_HW = (1200, 1920)
 
 # -------- TRAINING--------------
 DATA = "data/"
+SEMANTIC_SEGMENTATION_DATA: "semantic_segmentation_data"
 MAX_EPOCHS = 25
 
 
 # If USE_PREEXISTING_DATA_LOADERS is True new data_loaders will not be written
-USE_PREEXISTING_DATA_LOADERS = True
+USE_PREEXISTING_DATA_LOADERS = False
 DATA_LOADER_TRAIN_FILANME = "tmp/data_loaders/data_loader_train.pth"
 DATA_LOADER_VAL_FILENAME = "tmp/data_loaders/data_loader_val.pth"
 
@@ -51,7 +52,7 @@ COCO_ANN_VAL = None
 # --------EVALUATION---------------
 
 # Set the model weights to be used for evaluation
-MODEL_WEIGHTS_FILENAME = "tmp/models/maskRCNN_weights_bg_precision_0.53_recall_0.81.pth"
+MODEL_WEIGHTS_FILENAME = "tmp/models/EfficientPS_weights_loss_1.9355370998382568.pth"
 # Set the data loader to be used for evaluation. This can be set to None to use default filename
 DATA_LOADER = None
 # DATA_LOADER = "tmp/data_loaders/data_loader_val_bg.pth"

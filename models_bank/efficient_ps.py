@@ -49,37 +49,48 @@ class EfficientPS(nn.Module):
         for module in self.children():
             module.to(device)
 
-    def forward(self, images, anns=None):
+    def forward(self, images, anns=None, semantic=True, instance=True):
 
         losses = {}
+        roi_result = [{} for img in images]
+        semantic_logits = []
+        proposal_losses = {}
+        roi_losses = {}
 
         _, P4, P8, P16, P32 = self.backbone(images)
-        semantic_logits = self.semantic_head(P4, P8, P16, P32)
 
-        feature_maps = OrderedDict([('P4', P4),
-                                    ('P8', P8),
-                                    ('P16', P16),
-                                    ('P32', P32)])
+        if semantic:
+            semantic_logits = self.semantic_head(P4, P8, P16, P32)
 
-        image_list = ImageList(images, [x.shape[1:] for x in images])
-        image_sizes = [x.shape[1:] for x in images]
+        
+        if instance:
 
-        proposals, proposal_losses = self.rpn(
-            image_list, feature_maps, anns)
+            feature_maps = OrderedDict([('P4', P4),
+                                        ('P8', P8),
+                                        ('P16', P16),
+                                        ('P32', P32)])
 
-        roi_result, roi_losses = self.roi_pool(
-            feature_maps, proposals, image_sizes, targets=anns)
+            image_list = ImageList(images, [x.shape[1:] for x in images])
+            image_sizes = [x.shape[1:] for x in images]
 
-        roi_result = self.transform.postprocess(
-            roi_result, image_sizes, image_sizes)
+            proposals, proposal_losses = self.rpn(
+                image_list, feature_maps, anns)
+
+            roi_result, roi_losses = self.roi_pool(
+                feature_maps, proposals, image_sizes, targets=anns)
+
+            roi_result = self.transform.postprocess(
+                roi_result, image_sizes, image_sizes)
             
         if self.training:
-            semantic_masks = list(
-                map(lambda ann: ann['semantic_mask'], anns))
-            semantic_masks = tensorize_batch(semantic_masks, config.DEVICE)
 
-            losses["semantic_loss"] = F.cross_entropy(
-                semantic_logits, semantic_masks.long())
+            if semantic:
+                semantic_masks = list(
+                    map(lambda ann: ann['semantic_mask'], anns))
+                semantic_masks = tensorize_batch(semantic_masks, config.DEVICE)
+
+                losses["semantic_loss"] = F.cross_entropy(
+                    semantic_logits, semantic_masks.long())
 
             losses = {**losses, **proposal_losses, **roi_losses}
 
@@ -87,7 +98,7 @@ class EfficientPS(nn.Module):
 
         else:
             # return {**roi_result, 'semantic_logits': semantic_logits}
-            return [{**res, 'semantic_logits': semantic_logits[idx]} for idx, res in enumerate(roi_result)]
+            return [{**roi_result[idx], 'semantic_logits': semantic_logits[idx]} for idx, _ in enumerate(images)]
 
 
 # device = torch.device('cpu')
@@ -102,11 +113,11 @@ class EfficientPS(nn.Module):
 
 # print(images.shape[2], images.shape[3])
 # ratio = images.shape[2]/images.shape[3]
-# model = EfficientPS("EfficientNetB3", 256, 7, 1, (images.shape[2], images.shape[3]), ratio)
+# model = EfficientPS("EfficientNetB3", 256, 7, 1, (images.shape[2], images.shape[3]))
 
 # model.to(device)
 # model.train()
-# losses = model(images, anns=anns)
+# losses = model(images, anns=anns, semantic=False, instance=True)
 # print(losses)
 
 # model.eval()
