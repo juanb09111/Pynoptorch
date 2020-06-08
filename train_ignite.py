@@ -164,10 +164,10 @@ if __name__ == "__main__":
             os.path.abspath(__file__)), val_ann_filename)
 
         data_loader_train = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, train_dir, coco_ann_train, semantic_masks_folder="semantic_segmentation_data")
+            config.BATCH_SIZE, train_dir, coco_ann_train, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
 
         data_loader_val = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, val_dir, coco_ann_val, semantic_masks_folder="semantic_segmentation_data")
+            config.BATCH_SIZE, val_dir, coco_ann_val, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
 
         # save data loaders
         data_loader_train_filename = os.path.join(os.path.dirname(
