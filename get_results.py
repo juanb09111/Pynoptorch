@@ -36,12 +36,13 @@ print(device)
 torch.cuda.empty_cache()
 # move model to the right device
 
+
 def view_masks(model,
                data_loader_val,
                num_classes,
                weights_file,
-               folder_instance,
-               folder_semantic,
+               result_type,
+               folder,
                confidence=0.5):
     model.load_state_dict(torch.load(weights_file))
     model.to(device)
@@ -58,10 +59,13 @@ def view_masks(model,
             for idx, output in enumerate(outputs):
                 i += 1
                 img = images[idx].cpu().permute(1, 2, 0).numpy()
-                show_bbox.overlay_masks(
-                    img, output, confidence, colors, folder_instance, i)
-                show_bbox.get_semantic_masks(
-                    img, output, colors, folder_semantic, i)
+                if result_type == "instance":
+                    show_bbox.overlay_masks(
+                        img, output, confidence, colors, folder, i)
+                elif result_type == "semantic":
+                    show_bbox.get_semantic_masks(
+                        img, output, folder, i)
+
                 torch.cuda.empty_cache()
 
 
@@ -74,6 +78,12 @@ if __name__ == "__main__":
     model = models.get_model()
     view_masks(model, data_loader_val, config.NUM_THING_CLASSES,
                config.MODEL_WEIGHTS_FILENAME,
-               '{}_results_mask'.format(config.MODEL),
-               '{}_results_semantic'.format(config.MODEL),
+               "instance",
+               '{}_results_mask_resnet'.format(config.MODEL),
+               confidence=0.5)
+
+    view_masks(model, data_loader_val, config.NUM_THING_CLASSES,
+               config.MODEL_WEIGHTS_FILENAME,
+               "semantic",
+               '{}_results_semantic_resnet'.format(config.MODEL),
                confidence=0.5)
