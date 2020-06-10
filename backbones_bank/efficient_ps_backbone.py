@@ -77,7 +77,7 @@ class efficient_ps_backbone(nn.Module):
         P8 = F.leaky_relu(self.P8(b_up3 + t_down2))
         P16 = F.leaky_relu(self.P16(b_up2 + t_down3))
         P32 = F.leaky_relu(self.P32(b_up1 + t_down4))
-        return x, P4, P8, P16, P32
+        return P4, P8, P16, P32
 
 
 # images = torch.rand((2, 3, 1024, 2048))
