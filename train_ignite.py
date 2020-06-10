@@ -92,8 +92,8 @@ def __log_validation_results(trainer_engine):
     batch_loss = trainer_engine.state.output
     state_epoch = trainer_engine.state.epoch
     max_epochs = trainer_engine.state.max_epochs
-    weights_path = "{}{}_loss_{}.pth".format(
-        constants.MODELS_LOC, config.MODEL_WEIGHTS_FILENAME_PREFIX, batch_loss)
+    weights_path = "{}{}_{}_loss_{}.pth".format(
+        constants.MODELS_LOC, config.MODEL_WEIGHTS_FILENAME_PREFIX, config.BACKBONE, batch_loss)
     state_dict = model.state_dict()
     torch.save(state_dict, weights_path)
     print("Validation Results - Epoch {}/{} batch_loss: {:.2f}".format(state_epoch,
