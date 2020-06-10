@@ -2,27 +2,36 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import torchvision
+torchvision.models.detection.maskrcnn_resnet50_fpn
 import math
 from collections import OrderedDict
 from torchvision.models.detection.transform import GeneralizedRCNNTransform
 from common_blocks.image_list import ImageList
 from backbones_bank.efficient_ps_backbone import efficient_ps_backbone as eff_net
+from backbones_bank.maskrcnn_backbone import MaskRCNN_backbone as maskrcnn_backbone
 from segmentation_heads.RPN import RPN
 from segmentation_heads.sem_seg import segmentation_head as sem_seg_head
 from segmentation_heads.roi_heads import roi_heads
 from utils.tensorize_batch import tensorize_batch
 import config
 
+def map_backbone(backbone_net_name, original_aspect_ratio):
+    if "EfficientNetB" in backbone_net_name:
+        return eff_net(backbone_net_name, original_aspect_ratio)
+    elif backbone_net_name == "maskrcnn_backbone":
+        return maskrcnn_backbone(original_aspect_ratio)
+
+
 
 class EfficientPS(nn.Module):
     def __init__(self, backbone_net_name, backbone_out_channels, num_ins_classes, num_sem_classes, original_image_size,
-                 min_size=800, max_size=1333, image_mean=None, image_std=None):
+                 min_size=640, max_size=1024, image_mean=None, image_std=None):
         super(EfficientPS, self).__init__()
 
         original_aspect_ratio = original_image_size[0]/original_image_size[1]
-        self.backbone = eff_net(backbone_net_name, original_aspect_ratio)
-        # self.backbone = eff_net(1.6, 2.2, (512, 1024))
-        # self.backbone = eff_net(1, 1, (512, 1024))
+        # self.backbone = eff_net(backbone_net_name, original_aspect_ratio)
+        self.backbone = map_backbone(backbone_net_name, original_aspect_ratio)
+
 
         self.semantic_head = sem_seg_head(
             backbone_out_channels,
@@ -57,7 +66,7 @@ class EfficientPS(nn.Module):
         proposal_losses = {}
         roi_losses = {}
 
-        _, P4, P8, P16, P32 = self.backbone(images)
+        P4, P8, P16, P32 = self.backbone(images)
 
         if semantic:
             semantic_logits = self.semantic_head(P4, P8, P16, P32)

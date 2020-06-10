@@ -110,11 +110,10 @@ def overlay_masks(img, preds, confidence, colors, folder, file_name):
     plt.close(fig)
 
 
-def get_semantic_masks(img, preds, colors, folder, file_name):
+def get_semantic_masks(img, preds, folder, file_name):
     logits = preds["semantic_logits"]
     mask = torch.argmax(logits, dim=0)
     mask = mask.cpu().numpy()
-
     my_path = os.path.dirname(__file__)
     width = img.shape[1]
     height = img.shape[0]
