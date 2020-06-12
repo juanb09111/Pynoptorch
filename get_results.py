@@ -46,7 +46,6 @@ def view_masks(model,
                confidence=0.5):
     model.load_state_dict(torch.load(weights_file))
     model.to(device)
-    colors = show_bbox.get_colors_palete(num_classes)
     i = 0
     for images, _ in data_loader_val:
         images = list(img for img in images)
@@ -61,10 +60,10 @@ def view_masks(model,
                 img = images[idx].cpu().permute(1, 2, 0).numpy()
                 if result_type == "instance":
                     show_bbox.overlay_masks(
-                        img, output, confidence, colors, folder, i)
+                        img, output, confidence, folder, i)
                 elif result_type == "semantic":
                     show_bbox.get_semantic_masks(
-                        img, output, folder, i)
+                        img, output, num_classes, folder, i)
 
                 torch.cuda.empty_cache()
 
@@ -82,7 +81,7 @@ if __name__ == "__main__":
                '{}_results_mask_resnet'.format(config.MODEL),
                confidence=0.5)
 
-    view_masks(model, data_loader_val, config.NUM_THING_CLASSES,
+    view_masks(model, data_loader_val, config.NUM_THING_CLASSES + config.NUM_THING_CLASSES,
                config.MODEL_WEIGHTS_FILENAME,
                "semantic",
                '{}_results_semantic_resnet'.format(config.MODEL),
