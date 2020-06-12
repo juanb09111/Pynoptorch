@@ -16,7 +16,9 @@ import re
 import glob
 
 
-def randRGB():
+def randRGB(seed=None):
+    if seed is not None:
+        random.seed(seed)
     r = random.random()
     g = random.random()
     b = random.random()
@@ -25,20 +27,20 @@ def randRGB():
 
 
 colors_pallete = [
-    [96/255, 99/255, 225/255],  # blue
+    [255/255, 255/255, 255/255],  # white
     [96/255, 99/255, 225/255],  # blue
     [191/255, 96/255, 225/255],  # purple
     [245/255, 23/255, 23/255],  # red
     [69/255, 249/255, 60/255],  # green
     [253/255, 170/255, 3/255],  # orange
     [3/255, 218/255, 253/255],  # sky blue
-    [236/255, 253/255, 3/255],  # yellow
+    [236/255, 253/255, 3/255]  # yellow
 ]
 
 
 def get_colors_palete(num_classes):
-    colors = [randRGB() for i in range(num_classes)]
-    return colors_pallete
+    colors = [randRGB(i+10) for i in range(num_classes + 1)]
+    return colors
 
 
 def show_masks(img, preds, confidence, colors, file_name):
@@ -83,7 +85,26 @@ def apply_mask(image, mask, color, confidence, alpha=0.5):
     return image
 
 
-def overlay_masks(img, preds, confidence, colors, folder, file_name):
+def aply_semantic_mask(image, mask, colors):
+    
+    max_val = mask.max()
+
+    for i in range(0, max_val + 1):
+        for c in range(3):
+            if i == 0:
+                alpha = 0.25
+            else:
+                alpha = 0.45
+            color = colors[i]
+            image[:, :, c] = np.where(mask == i,
+                                      image[:, :, c] *
+                                      (1 - alpha) + alpha * color[c],
+                                      image[:, :, c])
+    
+    return image
+
+
+def overlay_masks(img, preds, confidence, folder, file_name):
     masks = preds['masks']
     scores = preds['scores']
     labels = preds['labels']
@@ -101,7 +122,7 @@ def overlay_masks(img, preds, confidence, colors, folder, file_name):
         if scores[i] > confidence and labels[i] > 0:
             mask = mask[0]
             mask = mask.cpu().numpy()
-            mask_color = colors[labels[i]]
+            mask_color = randRGB()
             im = apply_mask(img, mask, mask_color, confidence)
             ax.imshow(im,  interpolation='nearest', aspect='auto')
     plt.axis('off')
@@ -110,7 +131,10 @@ def overlay_masks(img, preds, confidence, colors, folder, file_name):
     plt.close(fig)
 
 
-def get_semantic_masks(img, preds, folder, file_name):
+def get_semantic_masks(img, preds, num_classes, folder, file_name):
+
+    colors = get_colors_palete(num_classes)
+
     logits = preds["semantic_logits"]
     mask = torch.argmax(logits, dim=0)
     mask = mask.cpu().numpy()
@@ -125,10 +149,9 @@ def get_semantic_masks(img, preds, folder, file_name):
     plt.gca().xaxis.set_major_locator(plt.NullLocator())
     plt.gca().yaxis.set_major_locator(plt.NullLocator())
 
-    
+    im = aply_semantic_mask(img, mask, colors)
+    ax.imshow(im,  interpolation='nearest', aspect='auto')
     plt.axis('off')
-    ax.imshow(img)
-    ax.imshow(mask, cmap='jet', alpha=0.3)
     fig.savefig(os.path.join(
         my_path, '../{}/{}.png'.format(folder, file_name)))
     plt.close(fig)
