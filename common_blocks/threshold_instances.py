@@ -251,6 +251,8 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch):
 
     batch_size = len(inter_pred_batch)
 
+    panoptic_canvas_batch = []
+
     all_categories, _, _ = get_stuff_thing_classes()
 
     print(all_categories)
@@ -286,16 +288,21 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch):
         sem_pred_flat_np = torch.flatten(sem_pred).numpy()
 
         # Stuff canvas
-        stuff_canvas_arr = list(map(lambda x: map_include(x, stuff_cat_idx), sem_pred_flat_np))
-
-        stuff_canvas = np.asarray(stuff_canvas_arr).reshape(original_shape)
+        stuff_canvas_list = list(map(lambda x: map_include(x, stuff_cat_idx), sem_pred_flat_np))
+        stuff_canvas_arr = np.array(stuff_canvas_list)
 
         # Things canvas
-        things_canvas_arr = list(map(lambda x: map_exclude(x, stuff_in_inter_pred_idx), inter_pred_flat_np))
+        things_canvas_list = list(map(lambda x: map_exclude(x, stuff_in_inter_pred_idx), inter_pred_flat_np))
+        things_canvas_arr = np.array(things_canvas_list)
 
-        things_canvas = np.asarray(things_canvas_arr).reshape(original_shape)
+        # panoptic_canvas
+        panoptic_canvas_arr = np.where(things_canvas_arr == 0, stuff_canvas_arr, things_canvas_arr)
+        panoptic_canvas = panoptic_canvas_arr.reshape(original_shape)
 
-        print(stuff_canvas.shape)
+        panoptic_canvas_batch.append(panoptic_canvas)
+
+    return panoptic_canvas_batch
+
 
         
 
