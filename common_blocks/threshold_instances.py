@@ -28,10 +28,10 @@ def threshold_instances(preds, threshold=0.5):
 
 def sort_by_confidence(preds):
 
-    sorted_preds = [{"masks": torch.rand_like(preds[i]["masks"]),
+    sorted_preds = [{"masks": torch.zeros_like(preds[i]["masks"]),
                      "boxes": torch.zeros_like(preds[i]["boxes"]),
                      "labels": torch.zeros_like(preds[i]["labels"]),
-                     "scores": torch.rand_like(preds[i]["scores"])} for i, _ in enumerate(preds)]
+                     "scores": torch.zeros_like(preds[i]["scores"])} for i, _ in enumerate(preds)]
 
     for i in range(len(preds)):
 
@@ -163,7 +163,7 @@ def fuse_logits(MLA, MLB):
         sigmoid_mla = mla_probs
         sigmoid_mlb = torch.sigmoid(mlb)
 
-        print(mla_logits.shape, mlb.shape)
+        # print(mla_logits.shape, mlb.shape)
 
         fl = (sigmoid_mla + sigmoid_mlb) * (mla_logits + mlb)
 
@@ -174,7 +174,9 @@ def fuse_logits(MLA, MLB):
 
 def panoptic_fusion(preds):
 
-    inter_logits_batch = []
+    inter_pred_batch = []
+    sem_pred_batch = []
+    
 
     batch_size = len(preds)
 
@@ -192,8 +194,8 @@ def panoptic_fusion(preds):
     stuff_cat_idx = list(
         map(lambda sutff_cat: sutff_cat[0], stuff_cat_idx_sup))
 
-    # Add background class
-    stuff_cat_idx = [x + 1 for x in stuff_cat_idx]
+    # Add background class 0
+    stuff_cat_idx = [0, *[x + 1 for x in stuff_cat_idx]]
 
     confidence_thresholded = threshold_instances(preds)
 
@@ -211,15 +213,93 @@ def panoptic_fusion(preds):
 
         sem_logits = preds[i]["semantic_logits"]
 
+        # TODO: check if background class 0 needs to be included in stuff_cat_idx
         stuff_sem_logits = torch.index_select(
             sem_logits, 0, torch.LongTensor(stuff_cat_idx))
 
+        # intermediate logits
         inter_logits = torch.cat((stuff_sem_logits, fused_logits))
+        
+        # Intermediate Prediction
+        inter_pred = torch.argmax(inter_logits, dim=0)
 
-        inter_logits_batch.append(inter_logits)
+        # Semantic Prediction includinf background class 0
+        sem_pred = torch.argmax(sem_logits, dim=0)
 
-        print(inter_logits.shape)
-        print(len(inter_logits_batch))
+        inter_pred_batch.append(inter_pred) 
+
+        sem_pred_batch.append(sem_pred) 
+
+    return inter_pred_batch, sem_pred_batch
+
+
+def map_include(x, classes_arr):
+
+    if x in classes_arr:
+        return x
+    else:
+        return 0
+
+def map_exclude(x, classes_arr):
+
+    if x in classes_arr:
+        return 0
+    else:
+        return x
+
+def panoptic_canvas(inter_pred_batch, sem_pred_batch):
+
+    batch_size = len(inter_pred_batch)
+
+    all_categories, _, _ = get_stuff_thing_classes()
+
+    print(all_categories)
+
+    # Get list of cat in the form of (idx, supercategory)
+    cat_idx = list(map(lambda cat_tuple: (
+        cat_tuple[0], cat_tuple[1]["supercategory"]), enumerate(all_categories)))
+
+    # Filter previous list with supercategory == "background"
+    stuff_cat_idx_sup = list(
+        filter(lambda cat_tuple: cat_tuple[1] == "background", cat_idx))
+
+    # Get indices only for stuff categories
+    stuff_cat_idx = list(
+        map(lambda sutff_cat: sutff_cat[0], stuff_cat_idx_sup))
+
+    # Add background class 0
+    stuff_cat_idx = [0, *[x + 1 for x in stuff_cat_idx]]
+    print(stuff_cat_idx)
+
+    # Stuff classes index in intermediate prediction
+    stuff_in_inter_pred_idx = [x for x in range(len(stuff_cat_idx))]
+    print(stuff_in_inter_pred_idx)
+
+    for i in range(batch_size):
+
+        inter_pred = inter_pred_batch[i]
+        sem_pred = sem_pred_batch[i]
+
+        original_shape = inter_pred.shape
+
+        inter_pred_flat_np = torch.flatten(inter_pred).numpy()
+        sem_pred_flat_np = torch.flatten(sem_pred).numpy()
+
+        # Stuff canvas
+        stuff_canvas_arr = list(map(lambda x: map_include(x, stuff_cat_idx), sem_pred_flat_np))
+
+        stuff_canvas = np.asarray(stuff_canvas_arr).reshape(original_shape)
+
+        # Things canvas
+        things_canvas_arr = list(map(lambda x: map_exclude(x, stuff_in_inter_pred_idx), inter_pred_flat_np))
+
+        things_canvas = np.asarray(things_canvas_arr).reshape(original_shape)
+
+        print(stuff_canvas.shape)
+
+        
+
+
 
 
 masks = torch.rand(10, 1200, 1920)
@@ -247,4 +327,6 @@ preds = [pred1, pred2]
 
 # batch_mlb = get_MLB(preds)
 
-panoptic_fusion(preds)
+inter_pred_batch, sem_pred_batch = panoptic_fusion(preds)
+
+panoptic_canvas(inter_pred_batch, sem_pred_batch)
