@@ -1,6 +1,6 @@
 # All dirs relative to root
 NUM_CLASSES = 8
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 MODEL = "EfficientPS"
 # MODEL = "MaskRCNN"
 # MODEL = "DeepLab"
@@ -9,7 +9,7 @@ MODEL_WEIGHTS_FILENAME_PREFIX = "EfficientPS_weights"
 DEVICE = None
 
 # When using EfficientPS define:
-# BACKBONE = "EfficientNetB1"
+# BACKBONE = "EfficientNetB2"
 BACKBONE = "maskrcnn_backbone"
 BACKBONE_OUT_CHANNELS = 256
 NUM_THING_CLASSES = 6
@@ -23,7 +23,7 @@ MAX_EPOCHS = 100
 
 
 # If USE_PREEXISTING_DATA_LOADERS is True new data_loaders will not be written
-USE_PREEXISTING_DATA_LOADERS = True
+USE_PREEXISTING_DATA_LOADERS = False
 DATA_LOADER_TRAIN_FILANME = "tmp/data_loaders/data_loader_train.pth"
 DATA_LOADER_VAL_FILENAME = "tmp/data_loaders/data_loader_val.pth"
 
@@ -53,9 +53,10 @@ COCO_ANN_VAL = None
 # --------EVALUATION---------------
 
 # Set the model weights to be used for evaluation
+# MODEL_WEIGHTS_FILENAME = "tmp/models/EfficientPS_weights_loss_0.909_bbx_65.6_segm_45.6.pth"
 MODEL_WEIGHTS_FILENAME = "tmp/models/EfficientPS_weights_maskrcnn_backbone_loss_0.57_bbx_82.8_segm_72.0.pth"
 # Set the data loader to be used for evaluation. This can be set to None to use default filename
 DATA_LOADER = None
-# DATA_LOADER = "tmp/data_loaders/data_loader_val_bg.pth"
+# DATA_LOADER = "tmp/data_loaders/data_loader_train_obj.pth"
 # Set coco evaluation IoU types
 IOU_TYPES = ["bbox", "segm"]
