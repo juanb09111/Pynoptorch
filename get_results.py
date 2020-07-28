@@ -6,6 +6,7 @@ from utils.tensorize_batch import tensorize_batch
 
 import os
 import os.path
+from pathlib import Path
 import torch
 
 
@@ -28,6 +29,9 @@ def view_masks(model,
                result_type,
                folder,
                confidence=0.5):
+
+    #Create folde if it doesn't exist
+    Path(folder).mkdir(parents=True, exist_ok=True)
     model.load_state_dict(torch.load(weights_file))
     # move model to the right device
     model.to(device)
