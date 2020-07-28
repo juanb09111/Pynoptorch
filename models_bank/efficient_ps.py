@@ -106,7 +106,6 @@ class EfficientPS(nn.Module):
             return losses
 
         else:
-            # return {**roi_result, 'semantic_logits': semantic_logits}
             return [{**roi_result[idx], 'semantic_logits': semantic_logits[idx]} for idx, _ in enumerate(images)]
 
 
@@ -120,15 +119,23 @@ class EfficientPS(nn.Module):
 
 # images = tensorize_batch(images, device)
 
-# print(images.shape[2], images.shape[3])
-# ratio = images.shape[2]/images.shape[3]
-# model = EfficientPS("EfficientNetB3", 256, 7, 1, (images.shape[2], images.shape[3]))
+# # print(images.shape[2], images.shape[3])
+# # ratio = images.shape[2]/images.shape[3]
+# model = EfficientPS(config.BACKBONE, 
+#             config.BACKBONE_OUT_CHANNELS, 
+#             config.NUM_THING_CLASSES, 
+#             config.NUM_STUFF_CLASSES, 
+#             config.ORIGINAL_INPUT_SIZE_HW)
 
 # model.to(device)
-# model.train()
-# losses = model(images, anns=anns, semantic=False, instance=True)
-# print(losses)
+# # model.train()
+# # losses = model(images, anns=anns, semantic=False, instance=True)
+# # print(losses)
 
 # model.eval()
 # res = model(images)
 # print(len(res), res[0].keys())
+
+# print(len(res[0]["boxes"]), len(res[0]["labels"]), len(res[0]["scores"]))
+
+# print(res[0]["masks"][0].shape, res[0]["masks"][1].shape)

@@ -14,6 +14,7 @@ from os import listdir
 from os.path import isfile, join
 import re
 import glob
+import config
 
 
 def randRGB(seed=None):
@@ -85,10 +86,9 @@ def apply_mask(image, mask, color, confidence, alpha=0.5):
     return image
 
 
-def aply_semantic_mask(image, mask, colors):
+def apply_semantic_mask(image, mask, colors):
     
     max_val = mask.max()
-
     for i in range(0, max_val + 1):
         for c in range(3):
             if i == 0:
@@ -103,6 +103,31 @@ def aply_semantic_mask(image, mask, colors):
     
     return image
 
+def apply_panoptic_mask(image, mask):
+
+    num_stuff_classes = config.NUM_STUFF_CLASSES
+    max_val = mask.max()
+    colors = get_colors_palete(max_val)
+
+    for i in range(0, max_val + 1):
+        for c in range(3):
+            if i == 0:
+                alpha = 0.25
+                color = colors[i]
+
+            elif i <= num_stuff_classes:
+                color = colors[i]
+                alpha = 0.45
+
+            else:
+                alpha = 0.45
+                color = randRGB(i+10)
+            
+            image[:, :, c] = np.where(mask == i,
+                                      image[:, :, c] *
+                                      (1 - alpha) + alpha * color[c],
+                                      image[:, :, c])
+    return image
 
 def overlay_masks(img, preds, confidence, folder, file_name):
     masks = preds['masks']
@@ -149,7 +174,7 @@ def get_semantic_masks(img, preds, num_classes, folder, file_name):
     plt.gca().xaxis.set_major_locator(plt.NullLocator())
     plt.gca().yaxis.set_major_locator(plt.NullLocator())
 
-    im = aply_semantic_mask(img, mask, colors)
+    im = apply_semantic_mask(img, mask, colors)
     ax.imshow(im,  interpolation='nearest', aspect='auto')
     plt.axis('off')
     fig.savefig(os.path.join(
