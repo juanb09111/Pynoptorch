@@ -4,6 +4,7 @@ import os.path
 import json
 import config
 import matplotlib.pyplot as plt
+from .show_bbox import apply_panoptic_mask
 
 
 def threshold_instances(preds, threshold=0.5):
@@ -44,7 +45,7 @@ def sort_by_confidence(preds):
             sorted_preds[i]["boxes"][idx] = preds[i]["boxes"][k]
             sorted_preds[i]["labels"][idx] = preds[i]["labels"][k]
             sorted_preds[i]["scores"][idx] = preds[i]["scores"][k]
-        
+
         sorted_preds[i]["semantic_logits"] = preds[i]["semantic_logits"]
 
     return sorted_preds
@@ -181,20 +182,12 @@ def fuse_logits(MLA, MLB):
         mla = MLA[i]
 
         mlb = MLB[i]
-        # print("mlb", mlb.shape)
+
         sigmoid_mla = torch.sigmoid(mla)
         sigmoid_mlb = torch.sigmoid(mlb)
 
-        # plt.imshow(mlb[0].cpu().numpy())
-
-        # print(mla_logits.shape, mlb.shape)
-
         fl = (sigmoid_mla + sigmoid_mlb) * (mla + mlb)
 
-        # for k in range(len(fl)):
-        #     plt.figure("{}{}".format(i, k))
-        #     plt.imshow(fl[k].cpu().numpy())
-        # print("fl", fl.shape)
         fl_batch.append(fl)
 
     return fl_batch
@@ -356,7 +349,7 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch):
     return panoptic_canvas_batch
 
 
-def get_panoptic_results(preds, folder, filename):
+def get_panoptic_results(images, preds, folder, filename):
 
     batch_size = len(preds)
 
@@ -380,37 +373,11 @@ def get_panoptic_results(preds, folder, filename):
 
         canvas = panoptic_canvas_batch[i]
 
-        ax.imshow(canvas,  interpolation='nearest', aspect='auto')
+        img = images[i].cpu().permute(1, 2, 0).numpy()
+        im = apply_panoptic_mask(img, canvas)
+
+        ax.imshow(im,  interpolation='nearest', aspect='auto')
         plt.axis('off')
         fig.savefig(os.path.join(
             my_path, '../{}/{}_{}.png'.format(folder, filename, i)))
-
-
-# masks = torch.rand(10, 1200, 1920)
-# confidence = torch.tensor([0, 0, 0, 0, 0, 0.7, 0.9, 0.8, 0, 0])
-# labels = torch.randint(0, 7, (1, 10)).squeeze(0)
-# boxes = torch.randint(0, 1200, (10, 4))
-# sem_logits = torch.rand(8, 1200, 1920)
-
-# print(labels)
-# pred1 = {"masks": masks, "boxes": boxes,
-#          "labels": labels,
-#          "scores": confidence,
-#          "semantic_logits": sem_logits}
-# pred2 = pred1
-
-# preds = [pred1, pred2]
-# # print(preds[0]["scores"].shape)
-
-# # res = threshold_instances(preds)
-
-# # print(preds[0]["scores"].shape)
-
-# # sorted_preds = sort_by_confidence(preds)
-
-
-# # batch_mlb = get_MLB(preds)
-
-# inter_pred_batch, sem_pred_batch = panoptic_fusion(preds)
-
-# panoptic_canvas_batch = panoptic_canvas(inter_pred_batch, sem_pred_batch)
+        plt.close(fig)
