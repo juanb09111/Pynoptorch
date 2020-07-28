@@ -5,12 +5,22 @@ import json
 import os.path
 import numpy as np
 import torch
+import torch.nn.functional as F
 from utils.tensorize_batch import tensorize_batch
 from pycocotools import mask, cocoeval
 from pycocotools.coco import COCO
 import models
 import constants
 import config
+
+
+device = torch.device(
+    'cuda') if torch.cuda.is_available() else torch.device('cpu')
+print(device)
+
+config.DEVICE = device
+torch.cuda.empty_cache()
+
 
 def __results_to_json(model, data_loader_val, categories):
     device = torch.device(
@@ -70,13 +80,63 @@ def __export_res(model, data_loader_val, output_file, categories):
         json.dump(res, res_file)
 
 
+def mIOU(label, pred):
+    # Include background
+    num_classes = config.NUM_STUFF_CLASSES + config.NUM_THING_CLASSES + 1
+    pred = F.softmax(pred, dim=0)
+    pred = torch.argmax(pred, dim=0).squeeze(1)
+    iou_list = list()
+    present_iou_list = list()
+
+    pred = pred.view(-1)
+    label = label.view(-1)
+    # Note: Following for loop goes from 0 to (num_classes-1)
+    # and ignore_index is num_classes, thus ignore_index is
+    # not considered in computation of IoU.
+    for sem_class in range(1, num_classes):
+        pred_inds = (pred == sem_class)
+        target_inds = (label == sem_class)
+        if target_inds.long().sum().item() == 0:
+            iou_now = float('nan')
+        else:
+            intersection_now = (pred_inds[target_inds]).long().sum().item()
+            union_now = pred_inds.long().sum().item() + \
+                target_inds.long().sum().item() - intersection_now
+            iou_now = float(intersection_now) / float(union_now)
+            present_iou_list.append(iou_now)
+        iou_list.append(iou_now)
+    return np.mean(present_iou_list)
+
+
+def get_mIoU(model, data_loader_val):
+
+    iou_list = []
+    for images, anns in data_loader_val:
+        images = list(img for img in images)
+        images = tensorize_batch(images, device)
+
+        model.eval()
+        with torch.no_grad():
+            outputs = model(images)
+
+            for idx, output in enumerate(outputs):
+
+                label = anns[idx]["semantic_mask"]
+                pred = output["semantic_logits"]
+                iou = mIOU(label, pred)
+                iou_list.append(iou)
+
+    return np.mean(iou_list)
+                
+
+
 def evaluate(model=None, weights_file=None, data_loader_val=None):
     """This function performs AP evaluation using coco_eval"""
     if weights_file is None and model is None:
         # Get model weights from config
         weights_file = os.path.join(os.path.dirname(
             os.path.abspath(__file__)), config.MODEL_WEIGHTS_FILENAME)
-    
+
     if model is None:
         # Get model corresponding to the one selected in config
         model = models.get_model()
@@ -89,7 +149,7 @@ def evaluate(model=None, weights_file=None, data_loader_val=None):
     torch.cuda.empty_cache()
     # Model to device
     model.to(device)
-    
+
     if data_loader_val is None:
         # Data loader is in constants.DATA_LOADERS_LOC/constants.DATA_LOADER_VAL_FILENAME by default
         data_loader_val = os.path.join(os.path.dirname(
@@ -101,18 +161,20 @@ def evaluate(model=None, weights_file=None, data_loader_val=None):
         # Load dataloader
         data_loader_val = torch.load(data_loader_val)
 
+    # Calculate mIoU
+    average_iou = get_mIoU(model, data_loader_val)
+    print("SemSeg mIoU = ", average_iou)
     # Annotation file is by default located under
     # constants.COCO_ANN_LOC/constants.ANN_VAL_DEFAULT_NAME
     val_ann_filename = os.path.join(os.path.dirname(
         os.path.abspath(__file__)), constants.COCO_ANN_LOC, constants.ANN_VAL_DEFAULT_NAME_OBJ)
 
-        
     # Make coco api from annotation file
     coco_gt = COCO(val_ann_filename)
 
     # Get categories
     categories = list(coco_gt.cats)
-    
+
     # res_filename will contain the predictions to be used later for evaluation
     res_filename = constants.COCO_RES_JSON_FILENAME
     # Export the predictions as a json file
@@ -130,6 +192,6 @@ def evaluate(model=None, weights_file=None, data_loader_val=None):
         coco_eval.accumulate()
         coco_eval.summarize()
 
+
 if __name__ == "__main__":
     evaluate()
-
