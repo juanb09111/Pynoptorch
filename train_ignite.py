@@ -4,7 +4,6 @@ from ignite.engine import Events, Engine
 import torch
 from utils import get_datasets
 from utils.tensorize_batch import tensorize_batch
-from evaluate import mean_ap
 from eval_coco import evaluate
 
 import config
@@ -190,7 +189,7 @@ if __name__ == "__main__":
             os.path.abspath(__file__)), constants.DATA_LOADERS_LOC, constants.DATA_LOADER_VAL_FILENAME)
         
         data_loader_val_obj_filename = os.path.join(os.path.dirname(
-            os.path.abspath(__file__)), constants.DATA_LOADERS_LOC, constants.DATA_LOADER_TRAIN_FILENAME_OBJ)
+            os.path.abspath(__file__)), constants.DATA_LOADERS_LOC, constants.DATA_LOADER_VAL_FILENAME_OBJ)
 
         torch.save(data_loader_train, data_loader_train_filename)
         torch.save(data_loader_val, data_loader_val_filename)
