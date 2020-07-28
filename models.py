@@ -1,4 +1,4 @@
-from utils import iss_model
+from models_bank import mask_rcnn
 from models_bank.efficient_ps import EfficientPS
 import os.path
 import json
@@ -39,7 +39,7 @@ def __get_num_bg_classes():
 
 def get_model():
     models_map = {
-        "MaskRCNN": iss_model.get_model(config.NUM_CLASSES),
+        "MaskRCNN": mask_rcnn.get_model(config.NUM_CLASSES),
         "EfficientPS": EfficientPS(config.BACKBONE, 
             config.BACKBONE_OUT_CHANNELS, 
             config.NUM_THING_CLASSES, 

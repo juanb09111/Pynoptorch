@@ -9,8 +9,8 @@ from eval_coco import evaluate
 import config
 import constants
 import models
-import map_hasty
-import get_splits
+from utils import map_hasty
+from utils import get_splits
 
 # %%
 
