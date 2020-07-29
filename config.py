@@ -40,7 +40,7 @@ AUTOMATICALLY_SPLIT_SETS = False
 SPLITS = {"VAL_SIZE": 0.157}
 
 # HASTY_COCO_ANN  is the coco ann file exported by hasty
-HASTY_COCO_ANN = "ann.json"
+HASTY_COCO_ANN = "coco_hasty_annotations.json"
 
 # COCO_ANN_TRAIN and COCO_ANN_VAL are created and saved automatically according to
 # constants.COCO_ANN_LOC/constants.ANN_TRAIN_DEFAULT_NAME
