@@ -1,40 +1,53 @@
 # %%
-import json
 import os.path
 import math
 import torch
 from pycocotools.coco import COCO
 import torchvision.transforms as transforms
 from PIL import Image
-
+import numpy as np
 # %%
 
 
 class myOwnDataset(torch.utils.data.Dataset):
-    def __init__(self, root, annotation, transforms=None):
+    def __init__(self, root, annotation, transforms=None, semantic_masks_folder=None):
         self.root = root
         self.transforms = transforms
         self.coco = COCO(annotation)
         self.ids = list(sorted(self.coco.imgs.keys()))
-
+        self.semantic_masks_folder = semantic_masks_folder
         catIds = self.coco.getCatIds()
         categories = self.coco.loadCats(catIds)
         self.categories = list(map(lambda x: x['name'], categories))
+
+        self.bg_categories_ids = self.coco.getCatIds(supNms="background")
+        bg_categories = self.coco.loadCats(self.bg_categories_ids)
+        self.bg_categories = list(map(lambda x: x['name'], bg_categories))
+
+        self.obj_categories_ids = self.coco.getCatIds(supNms="object")
+        obj_categories = self.coco.loadCats(self.obj_categories_ids)
+        self.obj_categories = list(map(lambda x: x['name'], obj_categories))
 
     def __getitem__(self, index):
         # Own coco file
         coco = self.coco
         # Image ID
         img_id = self.ids[index]
-        # List: get annotation id from coco
-        ann_ids = coco.getAnnIds(imgIds=img_id)
-        # Dictionary: target coco_annotation file for an image
-        coco_annotation = coco.loadAnns(ann_ids)
+        # List: get object annotations ids from coco
+        obj_ann_ids = coco.getAnnIds(
+            imgIds=img_id, catIds=self.obj_categories_ids)
+        # Dictionary: target coco_annotation file for an image containing only object classes
+        coco_annotation = coco.loadAnns(obj_ann_ids)
         # path for input image
         path = coco.loadImgs(img_id)[0]['file_name']
         # open the input image
         img = Image.open(os.path.join(self.root, path))
 
+        # create semantic mask
+        if self.semantic_masks_folder is not None:
+            semantic_mask = Image.open(os.path.join(
+                self.semantic_masks_folder, path + ".png"))
+            semantic_mask = np.array(semantic_mask)
         # number of objects in the image
         num_objs = len(coco_annotation)
 
@@ -48,6 +61,7 @@ class myOwnDataset(torch.utils.data.Dataset):
         masks = []
         category_ids = []
         for i in range(num_objs):
+
             xmin = coco_annotation[i]['bbox'][0]
             ymin = coco_annotation[i]['bbox'][1]
             xmax = xmin + coco_annotation[i]['bbox'][2]
@@ -56,8 +70,8 @@ class myOwnDataset(torch.utils.data.Dataset):
 
             category_id = coco_annotation[i]['category_id']
             label = coco.cats[category_id]['name']
-            labels.append(self.categories.index(label) + 1)
-
+            labels.append(self.obj_categories.index(label) + 1)
+            # TODO: Coco does not calculate area like this, This is only a quick fix for hasty anns area=0
             area = coco_annotation[i]['bbox'][2] * \
                 coco_annotation[i]['bbox'][3]
             areas.append(area)
@@ -73,12 +87,16 @@ class myOwnDataset(torch.utils.data.Dataset):
         areas = torch.as_tensor(areas, dtype=torch.float32)
         labels = torch.as_tensor(labels, dtype=torch.int64)
         masks = torch.as_tensor(masks, dtype=torch.uint8)
+
         # Tensorise img_id
         img_id = torch.tensor([img_id])
         # Iscrowd
         iscrowd = torch.as_tensor(iscrowd, dtype=torch.int64)
 
         category_ids = torch.as_tensor(category_ids, dtype=torch.int64)
+
+        # Num of instance objects
+        num_objs = torch.as_tensor(num_objs, dtype=torch.int64)
 
         # Annotation is in dictionary format
         my_annotation = {}
@@ -89,6 +107,11 @@ class myOwnDataset(torch.utils.data.Dataset):
         my_annotation["iscrowd"] = iscrowd
         my_annotation['masks'] = masks
         my_annotation["category_ids"] = category_ids
+        my_annotation["num_instances"] = num_objs
+
+        if self.semantic_masks_folder is not None:
+            semantic_mask = torch.as_tensor(semantic_mask, dtype=torch.uint8)
+            my_annotation["semantic_mask"] = semantic_mask
 
         if self.transforms is not None:
             img = self.transforms(img)
@@ -99,27 +122,51 @@ class myOwnDataset(torch.utils.data.Dataset):
         return len(self.ids)
 
 
+class testDataset(torch.utils.data.Dataset):
+    def __init__(self, root, transforms=None):
+        self.root = root
+        self.transforms = transforms
+        self.file_names_arr = os.listdir(root)
+
+    def __getitem__(self, index):
+
+        img = Image.open(os.path.join(self.root, self.file_names_arr[index]))
+
+        my_annotation = {}
+
+        if self.transforms is not None:
+            img = self.transforms(img)
+
+        return img, my_annotation
+
+    def __len__(self):
+        return len(self.file_names_arr)
+
+
 def get_transform():
     custom_transforms = []
     custom_transforms.append(transforms.ToTensor())
     # custom_transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
     return transforms.Compose(custom_transforms)
 
-# path to your own data and coco file
-
 
 # create own Dataset
 
-def get_datasets(root, annotation, split = False, val_size=0.20):
-    
+def get_datasets(root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False):
+
+    if is_test_set:
+        test_dataset = testDataset(root, transforms=get_transform())
+        return test_dataset
 
     my_dataset = myOwnDataset(root=root,
                               annotation=annotation,
-                              transforms=get_transform()
+                              transforms=get_transform(),
+                              semantic_masks_folder=semantic_masks_folder
                               )
     if split:
         if val_size >= 1:
-            raise AssertionError("val_size must be a value in the range of (0,1)")
+            raise AssertionError(
+                "val_size must be a value within the range of (0,1)")
 
         len_val = math.ceil(len(my_dataset)*val_size)
         len_train = len(my_dataset) - len_val
@@ -136,12 +183,22 @@ def get_datasets(root, annotation, split = False, val_size=0.20):
 def collate_fn(batch):
     return tuple(zip(*batch))
 
+def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False):
 
-
-def get_dataloaders(batch_size, root, annotation, split = False, val_size=0.20):
+    if is_test_set:
+        test_set = get_datasets(root, is_test_set=is_test_set)
+        data_loader_test = torch.utils.data.DataLoader(test_set,
+                                                       batch_size=batch_size,
+                                                       shuffle=False,
+                                                       num_workers=4,
+                                                       collate_fn=collate_fn,
+                                                       drop_last=True)
+        return data_loader_test
     if split:
         train_set, val_set = get_datasets(root=root,
-                                        annotation=annotation, split= split, val_size = val_size)
+                                          annotation=annotation,
+                                          split=split, val_size=val_size,
+                                          semantic_masks_folder=semantic_masks_folder)
         data_loader_train = torch.utils.data.DataLoader(train_set,
                                                         batch_size=batch_size,
                                                         shuffle=True,
@@ -150,18 +207,19 @@ def get_dataloaders(batch_size, root, annotation, split = False, val_size=0.20):
                                                         drop_last=True)
 
         data_loader_val = torch.utils.data.DataLoader(val_set,
-                                                    batch_size=batch_size,
-                                                    shuffle=True,
-                                                    num_workers=4,
-                                                    collate_fn=collate_fn,
-                                                    drop_last=True)
+                                                      batch_size=batch_size,
+                                                      shuffle=True,
+                                                      num_workers=4,
+                                                      collate_fn=collate_fn,
+                                                      drop_last=True)
         return data_loader_train, data_loader_val
     else:
-        dataset = get_datasets(root=root, annotation=annotation)
+        dataset = get_datasets(
+            root=root, annotation=annotation, semantic_masks_folder=semantic_masks_folder)
         data_loader = torch.utils.data.DataLoader(dataset,
-                                                    batch_size=batch_size,
-                                                    shuffle=True,
-                                                    num_workers=4,
-                                                    collate_fn=collate_fn,
-                                                    drop_last=True)
+                                                  batch_size=batch_size,
+                                                  shuffle=True,
+                                                  num_workers=4,
+                                                  collate_fn=collate_fn,
+                                                  drop_last=True)
         return data_loader

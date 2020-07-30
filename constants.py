@@ -4,12 +4,9 @@ COCO_ANN_LOC = "tmp/coco_ann/"
 MODELS_LOC = "tmp/models/"
 RES_LOC = "tmp/res/"
 
-# if AUTOMATICALLY_SPLIT_SETS is True then this dir will serve both train and val images
-
 TRAIN_DIR = "data_train/"
-
-#Required for evaluation unless AUTOMATICALLY_SPLIT_SETS is True
 VAL_DIR = "data_val/"
+TEST_DIR = "data_test/"
 
 
 DATA_LOADER_TRAIN_FILANME = "data_loader_train.pth"
@@ -32,4 +29,4 @@ ANN_VAL_DEFAULT_NAME_BG = "coco_ann_val_bg.json"
 ANN_TRAIN_DEFAULT_NAME_BG = "coco_ann_train_bg.json"
 #EVALUATION
 
-COCO_RES_JSON_FILENAME = "tmp/res/instances_val_results.json"
+COCO_RES_JSON_FILENAME = "tmp/res/instances_val_obj_results.json"
