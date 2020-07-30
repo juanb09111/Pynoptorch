@@ -8,7 +8,7 @@ from collections import OrderedDict
 from torchvision.models.detection.transform import GeneralizedRCNNTransform
 from common_blocks.image_list import ImageList
 from backbones_bank.efficient_ps_backbone import efficient_ps_backbone as eff_net
-from backbones_bank.maskrcnn_backbone import MaskRCNN_backbone as maskrcnn_backbone
+from backbones_bank.maskrcnn_backbone import MaskRCNN_backbone as resnet50
 from segmentation_heads.RPN import RPN
 from segmentation_heads.sem_seg import segmentation_head as sem_seg_head
 from segmentation_heads.roi_heads import roi_heads
@@ -18,8 +18,8 @@ import config
 def map_backbone(backbone_net_name, original_aspect_ratio):
     if "EfficientNetB" in backbone_net_name:
         return eff_net(backbone_net_name, original_aspect_ratio)
-    elif backbone_net_name == "maskrcnn_backbone":
-        return maskrcnn_backbone(original_aspect_ratio)
+    elif backbone_net_name == "resnet50":
+        return resnet50(original_aspect_ratio)
 
 
 

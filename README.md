@@ -49,7 +49,7 @@ Pynoptorch
 
 # Train with ignite 
 
-First, set the backbones network in config.py. Either "maskrcnn_backbone" or "EfficientNetB${0-7}"
+First, set the backbones network in config.py. Either "resnet50" or "EfficientNetB${0-7}"
 eg,. "EfficientNetB1". Then run:
 
 ```
@@ -66,6 +66,12 @@ Set MODEL_WEIGHTS_FILENAME in config.py  eg,. "tmp/models/EfficientPS_weights_ma
 python eval_coco.py
 ```
 
+# Inference 
+
+To do inference simply put the images you want to do inference on under the folder /data_test. Results will be saved in folders named according to the following pattern:
+```
+${MODEL_NAME}_${BACKBONES_NAME}_results_${SEGMENTATION_TYPE}_${TIMESTAMP}
+```
 <!-- # Commit
 
 To commit to this repository please follow smart commit syntax: https://support.atlassian.com/jira-software-cloud/docs/process-issues-with-smart-commits/ -->
