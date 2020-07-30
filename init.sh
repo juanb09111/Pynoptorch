@@ -1,5 +1,4 @@
 #!/bin/sh
-# This is a comment!
 mkdir -p tmp/coco_ann
 mkdir -p tmp/data_loaders
 mkdir -p tmp/data_dicts
@@ -8,4 +7,5 @@ mkdir -p tmp/res
 mkdir -p data
 mkdir -p data_train
 mkdir -p data_val
+mkdir -p data_test
 mkdir -p semantic_segmentation_data

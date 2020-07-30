@@ -11,18 +11,24 @@ from .efficient_net import efficient_net as efficient_net
 sequence has a stride s and all others use stride 1"""
 
 def efficient_map(net_name, original_aspect_ratio):
-    obj = {
-        "EfficientNetB0": EfficientNetB0(original_aspect_ratio),
-        "EfficientNetB1": EfficientNetB1(original_aspect_ratio),
-        "EfficientNetB2": EfficientNetB2(original_aspect_ratio),
-        "EfficientNetB3": EfficientNetB3(original_aspect_ratio),
-        "EfficientNetB4": EfficientNetB4(original_aspect_ratio),
-        "EfficientNetB5": EfficientNetB5(original_aspect_ratio),
-        "EfficientNetB6": EfficientNetB6(original_aspect_ratio),
-        "EfficientNetB7": EfficientNetB7(original_aspect_ratio)
-    }
-    net = obj[net_name]
-    return net
+    if net_name == "EfficientNetB0":
+        return EfficientNetB0(original_aspect_ratio)
+    if net_name == "EfficientNetB1":
+        return EfficientNetB1(original_aspect_ratio)
+    if net_name == "EfficientNetB2":
+        return EfficientNetB2(original_aspect_ratio)
+    if net_name == "EfficientNetB3":
+        return EfficientNetB3(original_aspect_ratio)
+    if net_name == "EfficientNetB4":
+        return EfficientNetB4(original_aspect_ratio)
+    if net_name == "EfficientNetB5":
+        return EfficientNetB5(original_aspect_ratio)
+    if net_name == "EfficientNetB6":
+        return EfficientNetB6(original_aspect_ratio)
+    if net_name == "EfficientNetB7":
+        return EfficientNetB7(original_aspect_ratio)
+    else:
+        raise AssertionError("Invalid backbones network. Modify config.BACKBONE in config.py")
 
 
 class efficient_ps_backbone(nn.Module):

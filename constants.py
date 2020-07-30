@@ -4,12 +4,9 @@ COCO_ANN_LOC = "tmp/coco_ann/"
 MODELS_LOC = "tmp/models/"
 RES_LOC = "tmp/res/"
 
-# if AUTOMATICALLY_SPLIT_SETS is True then this dir will serve both train and val images
-
 TRAIN_DIR = "data_train/"
-
-#Required for evaluation unless AUTOMATICALLY_SPLIT_SETS is True
 VAL_DIR = "data_val/"
+TEST_DIR = "data_test/"
 
 
 DATA_LOADER_TRAIN_FILANME = "data_loader_train.pth"

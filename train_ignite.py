@@ -173,13 +173,13 @@ if __name__ == "__main__":
 
         # data loaders
         data_loader_train = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, train_dir, coco_ann_train, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
+            config.BATCH_SIZE, train_dir, annotation=coco_ann_train, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
 
         data_loader_val = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, val_dir, coco_ann_val, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
+            config.BATCH_SIZE, val_dir, annotation=coco_ann_val, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
 
         data_loader_val_obj = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, val_dir, coco_ann_val_obj, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
+            config.BATCH_SIZE, val_dir, annotation=coco_ann_val_obj, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
 
         # save data loaders
         data_loader_train_filename = os.path.join(os.path.dirname(
