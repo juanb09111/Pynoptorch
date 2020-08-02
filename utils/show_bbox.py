@@ -32,7 +32,7 @@ colors_pallete = [
 
 
 def get_colors_palete(num_classes):
-    colors = [randRGB(i+10) for i in range(num_classes + 1)]
+    colors = [randRGB(i+15) for i in range(num_classes + 1)]
     return colors
 
 
@@ -122,6 +122,10 @@ def apply_panoptic_mask(image, mask):
     return image
 
 def overlay_masks(img, preds, confidence, folder, file_name):
+
+    file_name_basename = os.path.basename(file_name)
+    filename = os.path.splitext(file_name_basename)[0]
+
     masks = preds['masks']
     scores = preds['scores']
     labels = preds['labels']
@@ -144,13 +148,17 @@ def overlay_masks(img, preds, confidence, folder, file_name):
             ax.imshow(im,  interpolation='nearest', aspect='auto')
     plt.axis('off')
     fig.savefig(os.path.join(
-        my_path, '../{}/{}.png'.format(folder, file_name)))
+        my_path, '../{}/{}.png'.format(folder, filename)))
     plt.close(fig)
 
 
 def get_semantic_masks(img, preds, num_classes, folder, file_name):
 
-    colors = get_colors_palete(num_classes)
+    file_name_basename = os.path.basename(file_name)
+    filename = os.path.splitext(file_name_basename)[0]
+
+    # colors = get_colors_palete(num_classes)
+    colors = colors_pallete
 
     logits = preds["semantic_logits"]
     mask = torch.argmax(logits, dim=0)
@@ -170,5 +178,5 @@ def get_semantic_masks(img, preds, num_classes, folder, file_name):
     ax.imshow(im,  interpolation='nearest', aspect='auto')
     plt.axis('off')
     fig.savefig(os.path.join(
-        my_path, '../{}/{}.png'.format(folder, file_name)))
+        my_path, '../{}/{}.png'.format(folder, filename)))
     plt.close(fig)

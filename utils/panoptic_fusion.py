@@ -349,7 +349,7 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch):
     return panoptic_canvas_batch
 
 
-def get_panoptic_results(images, preds, folder, filename):
+def get_panoptic_results(images, preds, folder, filenames):
 
     batch_size = len(preds)
 
@@ -362,6 +362,10 @@ def get_panoptic_results(images, preds, folder, filename):
     my_path = os.path.dirname(__file__)
 
     for i in range(batch_size):
+
+        file_name_basename = os.path.basename(filenames[i])
+        file_name = os.path.splitext(file_name_basename)[0]
+
         dppi = 96
         fig, ax = plt.subplots(1, 1, figsize=(
             width/dppi, height/dppi), dpi=dppi)
@@ -379,5 +383,5 @@ def get_panoptic_results(images, preds, folder, filename):
         ax.imshow(im,  interpolation='nearest', aspect='auto')
         plt.axis('off')
         fig.savefig(os.path.join(
-            my_path, '../{}/{}_{}.png'.format(folder, filename, i)))
+            my_path, '../{}/{}.png'.format(folder, file_name)))
         plt.close(fig)
