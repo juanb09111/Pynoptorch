@@ -38,31 +38,28 @@ def view_masks(model,
     model.load_state_dict(torch.load(weights_file))
     # move model to the right device
     model.to(device)
-    i = 0
-    j = 0
-    for images, _ in data_loader_val:
+    for images, anns in data_loader_val:
         images = list(img for img in images)
         images = tensorize_batch(images, device)
-
+        file_names = list(map(lambda ann: ann["file_name"], anns))
         model.eval()
         with torch.no_grad():
             outputs = model(images)
 
             if result_type == "panoptic":
                 panoptic_fusion.get_panoptic_results(
-                    images, outputs, folder, j)
-                j += 1
+                    images, outputs, folder, file_names)
                 torch.cuda.empty_cache()
 
             for idx, output in enumerate(outputs):
-                i += 1
+                file_name = file_names[idx]
                 img = images[idx].cpu().permute(1, 2, 0).numpy()
                 if result_type == "instance":
                     show_bbox.overlay_masks(
-                        img, output, confidence, folder, i)
+                        img, output, confidence, folder, file_name)
                 elif result_type == "semantic":
                     show_bbox.get_semantic_masks(
-                        img, output, num_classes, folder, i)
+                        img, output, num_classes, folder, file_name)
 
                 torch.cuda.empty_cache()
 
