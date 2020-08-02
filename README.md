@@ -72,6 +72,15 @@ To do inference simply put the images you want to do inference on under the fold
 ```
 ${MODEL_NAME}_${BACKBONES_NAME}_results_${SEGMENTATION_TYPE}_${TIMESTAMP}
 ```
+
+# Make video out of inference
+
+To make a video out of subsequent images simply spicify the folder containing the images and the name of output .avi file in config.VIDEO_CONTAINER_FOLDER
+and config.VIDEO_OUTOUT_FILENAME respectively. Then run:
+
+```
+python make_video.py
+```
 <!-- # Commit
 
 To commit to this repository please follow smart commit syntax: https://support.atlassian.com/jira-software-cloud/docs/process-issues-with-smart-commits/ -->
