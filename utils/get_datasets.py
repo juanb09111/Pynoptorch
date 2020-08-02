@@ -133,6 +133,7 @@ class testDataset(torch.utils.data.Dataset):
         img = Image.open(os.path.join(self.root, self.file_names_arr[index]))
 
         my_annotation = {}
+        my_annotation["file_name"] = self.file_names_arr[index]
 
         if self.transforms is not None:
             img = self.transforms(img)
