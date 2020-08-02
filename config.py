@@ -55,6 +55,17 @@ IOU_TYPES = ["bbox", "segm"]
 
 # ----------TEST ----------
 
-INSTANCE =  True
-SEMANTIC =  True 
-PANOPTIC =  True 
+INSTANCE =  False
+SEMANTIC =  False 
+PANOPTIC =  False 
+
+# ----- MAKE VIDEO --------
+
+# VIDEO_CONTAINER_FOLDER = "EfficientPS_resnet50_results_instance_1596320454.678718/"
+# VIDEO_OUTOUT_FILENAME = "instance_segmentation.avi"
+
+# VIDEO_CONTAINER_FOLDER = "EfficientPS_resnet50_results_panoptic_1596310875.777973/"
+# VIDEO_OUTOUT_FILENAME = "panoptic_segmentation.avi"
+
+VIDEO_CONTAINER_FOLDER = "EfficientPS_resnet50_results_semantic_1596374348.640805/"
+VIDEO_OUTOUT_FILENAME = "semantic_segmentation.avi"
