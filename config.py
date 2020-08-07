@@ -57,7 +57,7 @@ IOU_TYPES = ["bbox", "segm"]
 
 INSTANCE =  False
 SEMANTIC =  False 
-PANOPTIC =  False 
+PANOPTIC =  True 
 
 # ----- MAKE VIDEO --------
 
