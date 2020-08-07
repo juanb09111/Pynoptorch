@@ -6,7 +6,7 @@ RES_LOC = "tmp/res/"
 
 TRAIN_DIR = "data_train/"
 VAL_DIR = "data_val/"
-TEST_DIR = "data_test/infere/"
+TEST_DIR = "data_test/"
 
 
 DATA_LOADER_TRAIN_FILANME = "data_loader_train.pth"
