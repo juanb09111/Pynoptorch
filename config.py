@@ -68,4 +68,4 @@ PANOPTIC =  True
 # VIDEO_OUTOUT_FILENAME = "panoptic_segmentation.avi"
 
 VIDEO_CONTAINER_FOLDER = "EfficientPS_resnet50_results_semantic_1596374348.640805/"
-VIDEO_OUTOUT_FILENAME = "semantic_segmentation_dewd.avi"
+VIDEO_OUTOUT_FILENAME = "semantic_segmentation.avi"
