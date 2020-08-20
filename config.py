@@ -22,6 +22,7 @@ MAX_EPOCHS = 100
 USE_PREEXISTING_DATA_LOADERS = False
 DATA_LOADER_TRAIN_FILANME = "tmp/data_loaders/data_loader_train.pth"
 DATA_LOADER_VAL_FILENAME = "tmp/data_loaders/data_loader_val.pth"
+DATA_LOADER_VAL_FILENAME_OBJ = "tmp/data_loaders/data_loader_val_obj.pth"
 
 # if USE_PREEXISTING_DATA_LOADERS is false then you can automatically split the data set
 # into val and train
