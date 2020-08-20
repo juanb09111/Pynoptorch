@@ -153,7 +153,7 @@ def evaluate(model=None, weights_file=None, data_loader_val=None):
     if data_loader_val is None:
         # Data loader is in constants.DATA_LOADERS_LOC/constants.DATA_LOADER_VAL_FILENAME by default
         data_loader_val = os.path.join(os.path.dirname(
-            os.path.abspath(__file__)), constants.DATA_LOADERS_LOC, constants.DATA_LOADER_VAL_FILENAME)
+            os.path.abspath(__file__)), constants.DATA_LOADERS_LOC, constants.DATA_LOADER_VAL_FILENAME_OBJ)
 
         # If DATA_LOADER is None in config then use default dataloader=data_loader_val as defined above
         data_loader_val = data_loader_val if config.DATA_LOADER is None else config.DATA_LOADER
