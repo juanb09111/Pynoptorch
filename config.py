@@ -10,7 +10,8 @@ BACKBONE = "resnet50"
 BACKBONE_OUT_CHANNELS = 256
 NUM_THING_CLASSES = 6
 NUM_STUFF_CLASSES = 1
-ORIGINAL_INPUT_SIZE_HW = (1200, 1920)
+# ORIGINAL_INPUT_SIZE_HW = (1200, 1920)
+ORIGINAL_INPUT_SIZE_HW = (480, 640)
 
 # -------- TRAINING--------------
 DATA = "data/"
@@ -28,7 +29,7 @@ DATA_LOADER_VAL_FILENAME_OBJ = "tmp/data_loaders/data_loader_val_obj.pth"
 # into val and train
 # Otherwise you have to split the data set manually into their respective folders:
 # constants.TRAIN_DIR and constants.VAL_DIR
-AUTOMATICALLY_SPLIT_SETS = False
+AUTOMATICALLY_SPLIT_SETS = True
 
 # Set the validation set size. This makes no difference if USE_PREEXISTING_DATA_LOADERS is True
 SPLITS = {"VAL_SIZE": 0.157}
@@ -57,8 +58,13 @@ IOU_TYPES = ["bbox", "segm"]
 # ----------TEST ----------
 
 INSTANCE =  False
-SEMANTIC =  False 
-PANOPTIC =  True 
+SEMANTIC =  True 
+PANOPTIC =  False 
+
+# -------- REAL TIME ------
+RT_INSTANCE =  False
+RT_SEMANTIC =  True 
+RT_PANOPTIC =  False 
 
 # ----- MAKE VIDEO --------
 
