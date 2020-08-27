@@ -5,12 +5,24 @@ import config
 import models
 from utils.tensorize_batch import tensorize_batch
 import torchvision.transforms as transforms
-from utils.show_bbox import colors_pallete, apply_semantic_mask
+from utils.show_bbox import colors_pallete, apply_semantic_mask, apply_mask, apply_panoptic_mask, randRGB
+from utils.panoptic_fusion import panoptic_fusion, panoptic_canvas
 import matplotlib.pyplot as plt
 from PIL import Image
 import time
 from datetime import datetime
 import os.path
+
+result_type = None
+    
+if config.RT_SEMANTIC:
+    result_type = "semantic"
+    
+elif config.RT_INSTANCE:
+    result_type = "instance"
+    
+elif config.RT_PANOPTIC:
+    result_type = "panoptic"
 
 #capture video
 cap = cv2.VideoCapture(config.CAM_DEVICE)
@@ -39,6 +51,7 @@ torch.cuda.empty_cache()
 # Get device
 device = torch.device(
     'cuda') if torch.cuda.is_available() else torch.device('cpu')
+config.DEVICE = device
 
 # Load model
 model = models.get_model()
@@ -60,40 +73,65 @@ def get_transform():
 
 transforms = get_transform()
 
-# Render masks
-def view_masks(frame,
-               num_classes,
-               result_type,
-               confidence=0.5):
+
+def get_seg_frame(frame, confidence=0.5):
 
     image = Image.fromarray(frame.astype('uint8'), 'RGB')
     image = transforms(image)
     images = tensorize_batch([image], device)
-    output = model(images)[0]
-    if result_type == "semantic":
 
-        logits = output["semantic_logits"]
-        mask = torch.argmax(logits, dim=0)
-        mask = mask.cpu().numpy()
-        im = apply_semantic_mask(frame/255, mask, colors_pallete)
-        return im
+    with torch.no_grad():
+        outputs = model(images)
+
+        if result_type == "semantic":
+
+            logits = outputs[0]["semantic_logits"]
+            mask = torch.argmax(logits, dim=0)
+            mask = mask.cpu().numpy()
+            im = apply_semantic_mask(frame/255, mask, colors_pallete)
+            return im
+        
+        if result_type == "instance":
+
+            masks = outputs[0]['masks']
+            scores = outputs[0]['scores']
+            labels = outputs[0]['labels']
+            im = frame/255
+            for i, mask in enumerate(masks):
+                if scores[i] > confidence and labels[i] > 0:
+                    mask = mask[0]
+                    mask = mask.cpu().numpy()
+                    mask_color = randRGB()
+                    im = apply_mask(im, mask, mask_color, confidence)
+            return im
+        
+        if result_type == "panoptic" and len(outputs[0]['masks']) > 0:
+            inter_pred_batch, sem_pred_batch = panoptic_fusion(outputs)
+            canvas = panoptic_canvas(inter_pred_batch, sem_pred_batch)[0]
+            if canvas is None:
+                return frame
+            else:
+                im = apply_panoptic_mask(frame/255, canvas)
+                return im
+        
+        else:
+            return frame
+
+
+
 
 # Video loop
 while(True):
     ret, frame = cap.read()
+    
+    im = get_seg_frame(frame, confidence=0.5)
 
-    if config.RT_SEMANTIC:
-        # start = time.time_ns()
-        im = view_masks(frame, config.NUM_THING_CLASSES + config.NUM_THING_CLASSES,
-                        "semantic",
-                        confidence=0.5)
-        if config.SAVE_VIDEO:
-            out.write(np.uint8(im*255))
-        # end = time.time_ns()
-        # print("time: ", end - start)
-        cv2.imshow('frame', im)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+    if config.SAVE_VIDEO:
+        out.write(np.uint8(im*255))
+
+    cv2.imshow('frame', im)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
 cap.release()
 if config.SAVE_VIDEO:
