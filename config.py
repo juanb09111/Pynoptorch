@@ -65,6 +65,10 @@ PANOPTIC =  False
 RT_INSTANCE =  False
 RT_SEMANTIC =  True 
 RT_PANOPTIC =  False 
+CAM_DEVICE = 0
+SAVE_VIDEO = False
+RT_VIDEO_OUTPUT_BASENAME = "rt_semantic"
+RT_VIDEO_OUTPUT_FOLDER = "rt_videos/"
 
 # ----- MAKE VIDEO --------
 
