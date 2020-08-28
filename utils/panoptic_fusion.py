@@ -333,14 +333,11 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch):
 
         if inter_pred == None and sem_pred == None:
             panoptic_canvas_batch.append(None)
-            print("here3")
         
         elif inter_pred == None and sem_pred is not None:
             sem_pred_np = sem_pred.cpu().numpy()
             panoptic_canvas_batch.append(sem_pred_np)
-            print("here2")
         else:
-            print("here1")
             # convert to numpy. Here the width and height are in (0,1) respectively
             inter_pred_np = inter_pred.cpu().numpy()
             sem_pred_np = sem_pred.cpu().numpy()
