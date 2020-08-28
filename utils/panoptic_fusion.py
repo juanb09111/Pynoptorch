@@ -241,14 +241,15 @@ def panoptic_fusion(preds):
         
         fused_logits = fused_logits_batch[i]
         
+        sem_logits = preds[i]["semantic_logits"]
+        
+        # TODO: check if background class 0 needs to be included in stuff_cat_idx
+        stuff_sem_logits = torch.index_select(sem_logits, 0, stuff_cat_idx)
+
         if fused_logits is not None: 
 
             fused_logits = fused_logits.to(config.DEVICE)
-            sem_logits = preds[i]["semantic_logits"]
 
-            # TODO: check if background class 0 needs to be included in stuff_cat_idx
-            stuff_sem_logits = torch.index_select(
-                sem_logits, 0, stuff_cat_idx)
             # print("suff-fused", stuff_sem_logits.shape, fused_logits.shape)
             # intermediate logits
             inter_logits = torch.cat((stuff_sem_logits, fused_logits))
@@ -269,9 +270,12 @@ def panoptic_fusion(preds):
 
             sem_pred_batch.append(sem_pred)
         else:
+
+            sem_pred = torch.argmax(stuff_sem_logits, dim=0)
+
             inter_pred_batch.append(None)
 
-            sem_pred_batch.append(None)
+            sem_pred_batch.append(sem_pred)
 
     return inter_pred_batch, sem_pred_batch
 
@@ -327,11 +331,16 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch):
         inter_pred = inter_pred_batch[i]
         sem_pred = sem_pred_batch[i]
 
-        if inter_pred == None or sem_pred == None:
+        if inter_pred == None and sem_pred == None:
             panoptic_canvas_batch.append(None)
+            print("here3")
         
+        elif inter_pred == None and sem_pred is not None:
+            sem_pred_np = sem_pred.cpu().numpy()
+            panoptic_canvas_batch.append(sem_pred_np)
+            print("here2")
         else:
-
+            print("here1")
             # convert to numpy. Here the width and height are in (0,1) respectively
             inter_pred_np = inter_pred.cpu().numpy()
             sem_pred_np = sem_pred.cpu().numpy()
@@ -375,6 +384,7 @@ def get_panoptic_results(images, preds, folder, filenames):
 
     panoptic_canvas_batch = panoptic_canvas(inter_pred_batch, sem_pred_batch)
 
+    # TODO: panoptic_canvas_batch could be None for one of the values in the batch
     height, width = panoptic_canvas_batch[0].shape
 
     my_path = os.path.dirname(__file__)
