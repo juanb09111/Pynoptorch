@@ -15,6 +15,8 @@ from datetime import datetime
 from utils import show_bbox, panoptic_fusion, get_datasets
 import glob
 
+import time
+
 
 device = torch.device(
     'cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -44,8 +46,10 @@ def view_masks(model,
         file_names = list(map(lambda ann: ann["file_name"], anns))
         model.eval()
         with torch.no_grad():
+            start = time.time_ns()
             outputs = model(images)
-
+            end = time.time_ns()
+            print(1/((end-start)/1e9))
             if result_type == "panoptic":
                 panoptic_fusion.get_panoptic_results(
                     images, outputs, folder, file_names)
