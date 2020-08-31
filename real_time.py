@@ -26,6 +26,7 @@ elif config.RT_PANOPTIC:
 
 #capture video
 cap = cv2.VideoCapture(config.CAM_DEVICE)
+# cap = cv2.VideoCapture("plain.avi")
 
 if (cap.isOpened() == False): 
     print("Unable to read camera feed")
@@ -81,18 +82,23 @@ def get_seg_frame(frame, confidence=0.5):
     images = tensorize_batch([image], device)
 
     with torch.no_grad():
+        start = time.time_ns()
         outputs = model(images)
+        end = time.time_ns()
+        print("model in-out fps: ", 1/((end-start)/1e9))
 
         if result_type == "semantic":
-
+            sem_start = time.time_ns()
             logits = outputs[0]["semantic_logits"]
             mask = torch.argmax(logits, dim=0)
             mask = mask.cpu().numpy()
             im = apply_semantic_mask(frame/255, mask, colors_pallete)
+            sem_end = time.time_ns()
+            print("semantic seg fps: ", 1/((sem_end-sem_start)/1e9))
             return im
         
         if result_type == "instance":
-
+            ins_start = time.time_ns()
             masks = outputs[0]['masks']
             scores = outputs[0]['scores']
             labels = outputs[0]['labels']
@@ -103,15 +109,20 @@ def get_seg_frame(frame, confidence=0.5):
                     mask = mask.cpu().numpy()
                     mask_color = randRGB()
                     im = apply_mask(im, mask, mask_color, confidence)
+            ins_end = time.time_ns()
+            print("instance seg fps: ", 1/((ins_end-ins_start)/1e9))
             return im
         
         if result_type == "panoptic" and len(outputs[0]['masks']) > 0:
+            pan_start = time.time_ns()
             inter_pred_batch, sem_pred_batch = panoptic_fusion(outputs)
             canvas = panoptic_canvas(inter_pred_batch, sem_pred_batch)[0]
             if canvas is None:
                 return frame
             else:
                 im = apply_panoptic_mask(frame/255, canvas)
+                pan_end = time.time_ns()
+                print("panoptic fps: ", 1/((pan_end-pan_start)/1e9))
                 return im
         
         else:
@@ -123,7 +134,6 @@ def get_seg_frame(frame, confidence=0.5):
 # Video loop
 while(True):
     ret, frame = cap.read()
-    
     im = get_seg_frame(frame, confidence=0.5)
 
     if config.SAVE_VIDEO:
