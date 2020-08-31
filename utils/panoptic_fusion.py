@@ -5,6 +5,7 @@ import json
 import config
 import matplotlib.pyplot as plt
 from .show_bbox import apply_panoptic_mask
+import time
 
 
 def threshold_instances(preds, threshold=0.5):
@@ -375,6 +376,8 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch):
 
 def get_panoptic_results(images, preds, folder, filenames):
 
+    start = time.time_ns()
+
     batch_size = len(preds)
 
     inter_pred_batch, sem_pred_batch = panoptic_fusion(preds)
@@ -388,6 +391,14 @@ def get_panoptic_results(images, preds, folder, filenames):
 
     for i in range(batch_size):
 
+        canvas = panoptic_canvas_batch[i]
+
+        img = images[i].cpu().permute(1, 2, 0).numpy()
+        im = apply_panoptic_mask(img, canvas)
+
+        end = time.time_ns()
+        print("panoptic fps: ", 1/((end-start)/1e9))
+
         file_name_basename = os.path.basename(filenames[i])
         file_name = os.path.splitext(file_name_basename)[0]
 
@@ -399,11 +410,6 @@ def get_panoptic_results(images, preds, folder, filenames):
         plt.margins(0, 0)
         plt.gca().xaxis.set_major_locator(plt.NullLocator())
         plt.gca().yaxis.set_major_locator(plt.NullLocator())
-
-        canvas = panoptic_canvas_batch[i]
-
-        img = images[i].cpu().permute(1, 2, 0).numpy()
-        im = apply_panoptic_mask(img, canvas)
 
         ax.imshow(im,  interpolation='nearest', aspect='auto')
         plt.axis('off')

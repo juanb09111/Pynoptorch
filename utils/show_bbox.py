@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from os.path import join
 import config
+import time
 
 
 def randRGB(seed=None):
@@ -123,46 +124,60 @@ def apply_panoptic_mask(image, mask):
 
 def overlay_masks(img, preds, confidence, folder, file_name):
 
-    file_name_basename = os.path.basename(file_name)
-    filename = os.path.splitext(file_name_basename)[0]
+    start = time.time_ns()
 
     masks = preds['masks']
     scores = preds['scores']
     labels = preds['labels']
-    my_path = os.path.dirname(__file__)
-    width = img.shape[1]
-    height = img.shape[0]
-    dppi = 96
-    fig, ax = plt.subplots(1, 1, figsize=(width/dppi, height/dppi), dpi=dppi)
-    plt.subplots_adjust(top=1, bottom=0, right=1, left=0,
-                        hspace=0, wspace=0)
-    plt.margins(0, 0)
-    plt.gca().xaxis.set_major_locator(plt.NullLocator())
-    plt.gca().yaxis.set_major_locator(plt.NullLocator())
+
+    # file_name_basename = os.path.basename(file_name)
+    # filename = os.path.splitext(file_name_basename)[0]
+    
+    # width = img.shape[1]
+    # height = img.shape[0]
+    # dppi = 96
+    # fig, ax = plt.subplots(1, 1, figsize=(width/dppi, height/dppi), dpi=dppi)
+    # plt.subplots_adjust(top=1, bottom=0, right=1, left=0,
+    #                     hspace=0, wspace=0)
+    # plt.margins(0, 0)
+    # plt.gca().xaxis.set_major_locator(plt.NullLocator())
+    # plt.gca().yaxis.set_major_locator(plt.NullLocator())
     for i, mask in enumerate(masks):
         if scores[i] > confidence and labels[i] > 0:
             mask = mask[0]
             mask = mask.cpu().numpy()
             mask_color = randRGB()
             im = apply_mask(img, mask, mask_color, confidence)
-            ax.imshow(im,  interpolation='nearest', aspect='auto')
-    plt.axis('off')
-    fig.savefig(os.path.join(
-        my_path, '../{}/{}.png'.format(folder, filename)))
-    plt.close(fig)
+    end = time.time_ns()
+    print("instance seg fps: ", 1/((end-start)/1e9))
+    #         ax.imshow(im,  interpolation='nearest', aspect='auto')
+    # plt.axis('off')
+
+    # my_path = os.path.dirname(__file__)
+    # fig.savefig(os.path.join(
+    #     my_path, '../{}/{}.png'.format(folder, filename)))
+    # plt.close(fig)
 
 
 def get_semantic_masks(img, preds, num_classes, folder, file_name):
+
+    start = time.time_ns()
+    
+    logits = preds["semantic_logits"]
+    mask = torch.argmax(logits, dim=0)
+    mask = mask.cpu().numpy()
+    
+    colors = colors_pallete
+    im = apply_semantic_mask(img, mask, colors)
+
+    end = time.time_ns()
+    print("semantic seg fps: ", 1/((end-start)/1e9))
 
     file_name_basename = os.path.basename(file_name)
     filename = os.path.splitext(file_name_basename)[0]
 
     # colors = get_colors_palete(num_classes)
-    colors = colors_pallete
 
-    logits = preds["semantic_logits"]
-    mask = torch.argmax(logits, dim=0)
-    mask = mask.cpu().numpy()
     my_path = os.path.dirname(__file__)
     width = img.shape[1]
     height = img.shape[0]
@@ -174,7 +189,6 @@ def get_semantic_masks(img, preds, num_classes, folder, file_name):
     plt.gca().xaxis.set_major_locator(plt.NullLocator())
     plt.gca().yaxis.set_major_locator(plt.NullLocator())
 
-    im = apply_semantic_mask(img, mask, colors)
     ax.imshow(im,  interpolation='nearest', aspect='auto')
     plt.axis('off')
     fig.savefig(os.path.join(

@@ -49,7 +49,7 @@ def view_masks(model,
             start = time.time_ns()
             outputs = model(images)
             end = time.time_ns()
-            print(1/((end-start)/1e9))
+            print("model in-out fps: ", 1/((end-start)/1e9))
             if result_type == "panoptic":
                 panoptic_fusion.get_panoptic_results(
                     images, outputs, folder, file_names)
