@@ -5,8 +5,8 @@ import config
 import models
 from utils.tensorize_batch import tensorize_batch
 import torchvision.transforms as transforms
-from utils.show_bbox import colors_pallete, apply_semantic_mask, apply_mask, apply_panoptic_mask, randRGB
-from utils.panoptic_fusion import panoptic_fusion, panoptic_canvas
+from utils.show_bbox import colors_pallete, apply_semantic_mask, apply_mask, apply_panoptic_mask_gpu, randRGB
+from utils.panoptic_fusion import panoptic_fusion, panoptic_canvas, get_stuff_thing_classes
 import matplotlib.pyplot as plt
 from PIL import Image
 import time
@@ -64,6 +64,10 @@ model.eval()
 
 # model.half()
 
+# get categories
+
+all_categories, stuff_categories, thing_categories = get_stuff_thing_classes()
+
 # Define transformation pipe
 def get_transform():
     custom_transforms = []
@@ -115,15 +119,15 @@ def get_seg_frame(frame, confidence=0.5):
         
         if result_type == "panoptic" and len(outputs[0]['masks']) > 0:
             pan_start = time.time_ns()
-            inter_pred_batch, sem_pred_batch = panoptic_fusion(outputs)
-            canvas = panoptic_canvas(inter_pred_batch, sem_pred_batch)[0]
+            inter_pred_batch, sem_pred_batch = panoptic_fusion(outputs, all_categories, stuff_categories, thing_categories)
+            canvas = panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories)[0]
             if canvas is None:
                 return frame
             else:
-                im = apply_panoptic_mask(frame/255, canvas)
+                im = apply_panoptic_mask_gpu(images[0], canvas)
                 pan_end = time.time_ns()
                 print("panoptic fps: ", 1/((pan_end-pan_start)/1e9))
-                return im
+                return im.cpu().permute(1, 2, 0).numpy()
         
         else:
             return frame
@@ -135,7 +139,7 @@ def get_seg_frame(frame, confidence=0.5):
 while(True):
     ret, frame = cap.read()
     im = get_seg_frame(frame, confidence=0.5)
-
+    
     if config.SAVE_VIDEO:
         out.write(np.uint8(im*255))
 
