@@ -336,13 +336,11 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_cate
         inter_pred = inter_pred_batch[i]
         sem_pred = sem_pred_batch[i]
 
-        #TODO: do not move to cpu 
         if inter_pred == None and sem_pred == None:
             panoptic_canvas_batch.append(None)
         
         elif inter_pred == None and sem_pred is not None:
-            sem_pred_np = sem_pred.cpu().numpy()
-            panoptic_canvas_batch.append(sem_pred_np)
+            panoptic_canvas_batch.append(sem_pred)
         else:         
             # Flatten tensors
 
