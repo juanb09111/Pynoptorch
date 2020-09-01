@@ -5,7 +5,7 @@ import config
 import models
 from utils.tensorize_batch import tensorize_batch
 import torchvision.transforms as transforms
-from utils.show_bbox import colors_pallete, apply_semantic_mask, apply_mask, apply_panoptic_mask_gpu, randRGB
+from utils.show_bbox import colors_pallete, apply_semantic_mask_gpu, apply_mask, apply_panoptic_mask_gpu, randRGB
 from utils.panoptic_fusion import panoptic_fusion, panoptic_canvas, get_stuff_thing_classes
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -95,11 +95,10 @@ def get_seg_frame(frame, confidence=0.5):
             sem_start = time.time_ns()
             logits = outputs[0]["semantic_logits"]
             mask = torch.argmax(logits, dim=0)
-            mask = mask.cpu().numpy()
-            im = apply_semantic_mask(frame/255, mask, colors_pallete)
+            im = apply_semantic_mask_gpu(images[0], mask, colors_pallete)
             sem_end = time.time_ns()
             print("semantic seg fps: ", 1/((sem_end-sem_start)/1e9))
-            return im
+            return im.cpu().permute(1, 2, 0).numpy()
         
         if result_type == "instance":
             ins_start = time.time_ns()
