@@ -341,11 +341,7 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_cate
         
         elif inter_pred == None and sem_pred is not None:
             panoptic_canvas_batch.append(sem_pred)
-        else:         
-            # Flatten tensors
-
-            start_2 = time.time_ns()
-
+        else:
             # canvases in GPU
 
             stuff_canvas_gpu = map_stuff(sem_pred, stuff_cat_idx)
