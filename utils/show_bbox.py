@@ -122,6 +122,34 @@ def apply_panoptic_mask(image, mask):
                                       image[:, :, c])
     return image
 
+def apply_panoptic_mask_gpu(image, mask):
+
+
+    num_stuff_classes = config.NUM_STUFF_CLASSES
+    max_val = mask.max()
+    colors = get_colors_palete(max_val)
+    colors = torch.tensor(colors)
+
+    for i in range(0, max_val + 1):
+        for c in range(3):
+            if i == 0:
+                alpha = 0.25
+                color = colors[i]
+
+            elif i <= num_stuff_classes:
+                color = colors[i]
+                alpha = 0.45
+
+            else:
+                alpha = 0.45
+                color = randRGB(i+10)
+            
+            image[c, :, :] = torch.where(mask == i,
+                                      image[c, :, :] *
+                                      (1 - alpha) + alpha * color[c],
+                                      image[c, :, :])
+    return image
+
 def overlay_masks(img, preds, confidence, folder, file_name):
 
     start = time.time_ns()

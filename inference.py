@@ -25,6 +25,8 @@ print(device)
 config.DEVICE = device
 torch.cuda.empty_cache()
 
+all_categories, stuff_categories, thing_categories = panoptic_fusion.get_stuff_thing_classes()
+
 
 def view_masks(model,
                data_loader_val,
@@ -52,7 +54,7 @@ def view_masks(model,
             print("model in-out fps: ", 1/((end-start)/1e9))
             if result_type == "panoptic":
                 panoptic_fusion.get_panoptic_results(
-                    images, outputs, folder, file_names)
+                    images, outputs, all_categories, stuff_categories, thing_categories, folder, file_names)
                 torch.cuda.empty_cache()
 
             for idx, output in enumerate(outputs):
@@ -85,7 +87,8 @@ if __name__ == "__main__":
         view_masks(model, data_loader_test, config.NUM_THING_CLASSES,
                    config.MODEL_WEIGHTS_FILENAME,
                    "instance",
-                   '{}_{}_results_instance_{}'.format(config.MODEL, config.BACKBONE, timestamp),
+                   '{}_{}_results_instance_{}'.format(
+                       config.MODEL, config.BACKBONE, timestamp),
                    confidence=0.5)
 
     if config.SEMANTIC:
@@ -94,7 +97,8 @@ if __name__ == "__main__":
         view_masks(model, data_loader_test, config.NUM_THING_CLASSES + config.NUM_THING_CLASSES,
                    config.MODEL_WEIGHTS_FILENAME,
                    "semantic",
-                   '{}_{}_results_semantic_{}'.format(config.MODEL, config.BACKBONE, timestamp),
+                   '{}_{}_results_semantic_{}'.format(
+                       config.MODEL, config.BACKBONE, timestamp),
                    confidence=0.5)
 
     if config.PANOPTIC:
@@ -103,5 +107,6 @@ if __name__ == "__main__":
         view_masks(model, data_loader_test, config.NUM_THING_CLASSES + config.NUM_THING_CLASSES,
                    config.MODEL_WEIGHTS_FILENAME,
                    "panoptic",
-                   '{}_{}_results_panoptic_{}'.format(config.MODEL, config.BACKBONE, timestamp),
+                   '{}_{}_results_panoptic_{}'.format(
+                       config.MODEL, config.BACKBONE, timestamp),
                    confidence=0.5)

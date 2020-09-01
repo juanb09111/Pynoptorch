@@ -4,7 +4,7 @@ import os.path
 import json
 import config
 import matplotlib.pyplot as plt
-from .show_bbox import apply_panoptic_mask
+from .show_bbox import apply_panoptic_mask, apply_panoptic_mask_gpu
 import time
 
 
@@ -281,31 +281,37 @@ def panoptic_fusion(preds):
     return inter_pred_batch, sem_pred_batch
 
 
-def map_include(x, classes_arr):
+def map_stuff(x, classes_arr):
+    
+    res = torch.zeros_like(x)
+    default_value = torch.tensor(0).to(config.DEVICE)
 
-    if x in classes_arr:
-        return x
-    else:
-        return 0
+    for c in classes_arr:
+        y = torch.where(x == c, x, default_value)
+
+        res = res + y
+    
+    return res
+
+def map_things(x, classes_arr):
+    res = torch.zeros_like(x)
+    default_value = torch.tensor(0).to(config.DEVICE)
+
+    for c in classes_arr:
+        y = torch.where(x != c, x, default_value)
+
+        res = res + y
+    
+    return res
 
 
-def map_exclude(x, classes_arr):
+def panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories):
 
-    if x in classes_arr:
-        return 0
-    else:
-        return x
-
-
-def panoptic_canvas(inter_pred_batch, sem_pred_batch):
-
+    
     batch_size = len(inter_pred_batch)
 
     panoptic_canvas_batch = []
 
-    all_categories, _, _ = get_stuff_thing_classes()
-
-    # print("all_categories", all_categories)
 
     # Get list of cat in the form of (idx, supercategory)
     cat_idx = list(map(lambda cat_tuple: (
@@ -326,78 +332,67 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch):
     # Stuff classes index in intermediate prediction
     stuff_in_inter_pred_idx = [x for x in range(len(stuff_cat_idx))]
     # print("stuff_in_inter_pred_idx", stuff_in_inter_pred_idx)
-
+    
+    default_value = torch.tensor(0).to(config.DEVICE)
     for i in range(batch_size):
 
         inter_pred = inter_pred_batch[i]
         sem_pred = sem_pred_batch[i]
 
+        #TODO: do not move to cpu 
         if inter_pred == None and sem_pred == None:
             panoptic_canvas_batch.append(None)
         
         elif inter_pred == None and sem_pred is not None:
             sem_pred_np = sem_pred.cpu().numpy()
             panoptic_canvas_batch.append(sem_pred_np)
-        else:
-            # convert to numpy. Here the width and height are in (0,1) respectively
-            inter_pred_np = inter_pred.cpu().numpy()
-            sem_pred_np = sem_pred.cpu().numpy()
+        else:         
+            # Flatten tensors
 
-            # flatten numpy
-            inter_pred_flat_np = inter_pred_np.flatten()
-            sem_pred_flat_np = sem_pred_np.flatten()
+            start_2 = time.time_ns()
 
-            original_shape = inter_pred.shape
-            width = original_shape[1]
-            height = original_shape[0]
+            # canvases in GPU
 
-            # Stuff canvas
-            stuff_canvas_list = list(
-                map(lambda x: map_include(x, stuff_cat_idx), sem_pred_flat_np))
-            stuff_canvas_arr = np.array(stuff_canvas_list)
+            stuff_canvas_gpu = map_stuff(sem_pred, stuff_cat_idx)
 
-            # Things canvas
-            things_canvas_list = list(map(lambda x: map_exclude(
-                x, stuff_in_inter_pred_idx), inter_pred_flat_np))
-            things_canvas_arr = np.array(things_canvas_list)
+            things_canvas_gpu = map_things(inter_pred, stuff_in_inter_pred_idx)
 
-            # panoptic_canvas
-            panoptic_canvas_arr = np.where(
-                things_canvas_arr == 0, stuff_canvas_arr, things_canvas_arr)
-            panoptic_canvas = panoptic_canvas_arr.reshape((height, width))
+            panoptic_canvas_gpu = torch.where(things_canvas_gpu == default_value, stuff_canvas_gpu, things_canvas_gpu)
 
-            # plt.figure(i)
-            # plt.imshow(panoptic_canvas)
-
-            panoptic_canvas_batch.append(panoptic_canvas)
+            panoptic_canvas_batch.append(panoptic_canvas_gpu)
 
     return panoptic_canvas_batch
 
 
-def get_panoptic_results(images, preds, folder, filenames):
+def get_panoptic_results(images, preds, all_categories, stuff_categories, thing_categories, folder, filenames):
 
-    start = time.time_ns()
+    start_pan = time.time_ns()
 
     batch_size = len(preds)
 
+    # start_fuse = time.time_ns()
     inter_pred_batch, sem_pred_batch = panoptic_fusion(preds)
+    # end_fuse = time.time_ns()
 
-    panoptic_canvas_batch = panoptic_canvas(inter_pred_batch, sem_pred_batch)
+    # start_can = time.time_ns()
+    panoptic_canvas_batch = panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories)
+    # end_can = time.time_ns()
 
+    
     # TODO: panoptic_canvas_batch could be None for one of the values in the batch
     height, width = panoptic_canvas_batch[0].shape
 
     my_path = os.path.dirname(__file__)
 
     for i in range(batch_size):
-
+        
         canvas = panoptic_canvas_batch[i]
-
-        img = images[i].cpu().permute(1, 2, 0).numpy()
-        im = apply_panoptic_mask(img, canvas)
-
-        end = time.time_ns()
-        print("panoptic fps: ", 1/((end-start)/1e9))
+        img = images[i]
+        im = apply_panoptic_mask_gpu(img, canvas)
+        end_pan = time.time_ns()
+        print("panoptic fusion: ", 1/((end_pan-start_pan)/1e9))
+        #Move to cpu
+        im = im.cpu().permute(1, 2, 0).numpy()
 
         file_name_basename = os.path.basename(filenames[i])
         file_name = os.path.splitext(file_name_basename)[0]
