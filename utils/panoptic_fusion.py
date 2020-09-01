@@ -71,9 +71,8 @@ def get_stuff_thing_classes():
     return all_categories, stuff_categories, thing_categories
 
 
-def get_MLB(sorted_preds):
+def get_MLB(sorted_preds, all_categories, thing_categories):
 
-    all_categories, _, thing_categories = get_stuff_thing_classes()
 
     all_ids = list(map(lambda cat: cat["id"], all_categories))
 
@@ -179,7 +178,7 @@ def get_MLA(sorted_preds):
 
 
 def fuse_logits(MLA, MLB):
-
+    
     batch_size = len(MLA)
     fl_batch = []
     for i in range(batch_size):
@@ -193,7 +192,7 @@ def fuse_logits(MLA, MLB):
             sigmoid_mla = torch.sigmoid(mla)
             sigmoid_mlb = torch.sigmoid(mlb)
 
-            fl = (sigmoid_mla + sigmoid_mlb) * (mla + mlb)
+            fl = torch.mul(torch.add(sigmoid_mla, sigmoid_mlb), torch.add(mla, mlb))
 
             fl_batch.append(fl)
         else:
@@ -202,14 +201,12 @@ def fuse_logits(MLA, MLB):
     return fl_batch
 
 
-def panoptic_fusion(preds):
+def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories):
 
     inter_pred_batch = []
     sem_pred_batch = []
 
     batch_size = len(preds)
-
-    all_categories, _, _ = get_stuff_thing_classes()
 
     # Get list of cat in the form of (idx, supercategory)
     cat_idx = list(map(lambda cat_tuple: (
@@ -234,7 +231,7 @@ def panoptic_fusion(preds):
 
     MLA = get_MLA(sorted_preds)
 
-    MLB = get_MLB(sorted_preds)
+    MLB = get_MLB(sorted_preds, all_categories, thing_categories)
 
     fused_logits_batch = fuse_logits(MLA, MLB)
 
@@ -366,18 +363,20 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_cate
 
 def get_panoptic_results(images, preds, all_categories, stuff_categories, thing_categories, folder, filenames):
 
-    start_pan = time.time_ns()
+    # start_pan = time.time_ns()
 
     batch_size = len(preds)
 
-    # start_fuse = time.time_ns()
-    inter_pred_batch, sem_pred_batch = panoptic_fusion(preds)
-    # end_fuse = time.time_ns()
+    start_fuse = time.time_ns()
+    inter_pred_batch, sem_pred_batch = panoptic_fusion(preds, all_categories, stuff_categories, thing_categories)
+    end_fuse = time.time_ns()
 
     # start_can = time.time_ns()
     panoptic_canvas_batch = panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories)
     # end_can = time.time_ns()
 
+    print("fusion fps: ",  1/((end_fuse-start_fuse)/1e9))
+    # print("canvas fps: ",  1/((end_can-start_can)/1e9))
     
     # TODO: panoptic_canvas_batch could be None for one of the values in the batch
     height, width = panoptic_canvas_batch[0].shape
@@ -389,8 +388,8 @@ def get_panoptic_results(images, preds, all_categories, stuff_categories, thing_
         canvas = panoptic_canvas_batch[i]
         img = images[i]
         im = apply_panoptic_mask_gpu(img, canvas)
-        end_pan = time.time_ns()
-        print("panoptic fusion: ", 1/((end_pan-start_pan)/1e9))
+        # end_pan = time.time_ns()
+        # print("panoptic fusion: ", 1/((end_pan-start_pan)/1e9))
         #Move to cpu
         im = im.cpu().permute(1, 2, 0).numpy()
 
