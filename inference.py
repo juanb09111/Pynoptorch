@@ -59,13 +59,13 @@ def view_masks(model,
 
             for idx, output in enumerate(outputs):
                 file_name = file_names[idx]
-                img = images[idx].cpu().permute(1, 2, 0).numpy()
+                # img = images[idx].cpu().permute(1, 2, 0).numpy()
                 if result_type == "instance":
                     show_bbox.overlay_masks(
-                        img, output, confidence, folder, file_name)
+                        images[idx], output, confidence, folder, file_name)
                 elif result_type == "semantic":
                     show_bbox.get_semantic_masks(
-                        img, output, num_classes, folder, file_name)
+                        images[idx], output, num_classes, folder, file_name)
 
                 torch.cuda.empty_cache()
 

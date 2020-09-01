@@ -96,30 +96,21 @@ def apply_semantic_mask(image, mask, colors):
     
     return image
 
-def apply_panoptic_mask(image, mask):
+def apply_semantic_mask_gpu(image, mask, colors):
 
-    num_stuff_classes = config.NUM_STUFF_CLASSES
     max_val = mask.max()
-    colors = get_colors_palete(max_val)
-
     for i in range(0, max_val + 1):
         for c in range(3):
             if i == 0:
                 alpha = 0.25
-                color = colors[i]
-
-            elif i <= num_stuff_classes:
-                color = colors[i]
-                alpha = 0.45
-
             else:
                 alpha = 0.45
-                color = randRGB(i+10)
-            
-            image[:, :, c] = np.where(mask == i,
-                                      image[:, :, c] *
+            color = colors[i]
+            image[c, :, :] = torch.where(mask == i,
+                                      image[c, :, :] *
                                       (1 - alpha) + alpha * color[c],
-                                      image[:, :, c])
+                                      image[c, :, :])
+    
     return image
 
 def apply_panoptic_mask_gpu(image, mask):
@@ -189,26 +180,26 @@ def overlay_masks(img, preds, confidence, folder, file_name):
 
 def get_semantic_masks(img, preds, num_classes, folder, file_name):
 
-    start = time.time_ns()
+    start_sem = time.time_ns()
     
     logits = preds["semantic_logits"]
     mask = torch.argmax(logits, dim=0)
-    mask = mask.cpu().numpy()
     
     colors = colors_pallete
-    im = apply_semantic_mask(img, mask, colors)
+    im = apply_semantic_mask_gpu(img, mask, colors)
 
-    end = time.time_ns()
-    print("semantic seg fps: ", 1/((end-start)/1e9))
+    end_sem = time.time_ns()
+    print("semantic seg fps: ", 1/((end_sem-start_sem)/1e9))
 
+    im = im.cpu().permute(1, 2, 0).numpy()
     file_name_basename = os.path.basename(file_name)
     filename = os.path.splitext(file_name_basename)[0]
 
     # colors = get_colors_palete(num_classes)
 
     my_path = os.path.dirname(__file__)
-    width = img.shape[1]
-    height = img.shape[0]
+    width = im.shape[1]
+    height = im.shape[0]
     dppi = 96
     fig, ax = plt.subplots(1, 1, figsize=(width/dppi, height/dppi), dpi=dppi)
     plt.subplots_adjust(top=1, bottom=0, right=1, left=0,

@@ -4,7 +4,7 @@ import os.path
 import json
 import config
 import matplotlib.pyplot as plt
-from .show_bbox import apply_panoptic_mask, apply_panoptic_mask_gpu
+from .show_bbox import apply_panoptic_mask_gpu
 import time
 
 
