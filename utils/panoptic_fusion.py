@@ -51,6 +51,15 @@ def sort_by_confidence(preds):
 
     return sorted_preds
 
+def summary(labels, thing_categories):
+    count = [{"name": cat["name"], "count_obj": 0, "idx": i + 1} for i, cat in enumerate(thing_categories)]  
+
+    for c in count:
+        indices = [i for i, x in enumerate(labels) if x == c["idx"]]
+        c["count_obj"] = len(indices)
+
+         
+    return count
 
 def get_stuff_thing_classes():
 
@@ -205,7 +214,7 @@ def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories):
 
     inter_pred_batch = []
     sem_pred_batch = []
-
+    summary_batch = []
     batch_size = len(preds)
 
     # Get list of cat in the form of (idx, supercategory)
@@ -228,7 +237,7 @@ def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories):
     confidence_thresholded = threshold_instances(preds)
 
     sorted_preds = sort_by_confidence(confidence_thresholded)
-
+    
     MLA = get_MLA(sorted_preds)
 
     MLB = get_MLB(sorted_preds, all_categories, thing_categories)
@@ -237,6 +246,11 @@ def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories):
 
     for i in range(batch_size):
         
+        labels = preds[i]["labels"]
+
+        summary_obj = summary(labels, thing_categories)
+        summary_batch.append(summary_obj)
+
         fused_logits = fused_logits_batch[i]
         
         sem_logits = preds[i]["semantic_logits"]
@@ -275,7 +289,7 @@ def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories):
 
             sem_pred_batch.append(sem_pred)
 
-    return inter_pred_batch, sem_pred_batch
+    return inter_pred_batch, sem_pred_batch, summary_batch
 
 
 def map_stuff(x, classes_arr):
@@ -361,15 +375,14 @@ def get_panoptic_results(images, preds, all_categories, stuff_categories, thing_
 
     batch_size = len(preds)
 
-    start_fuse = time.time_ns()
-    inter_pred_batch, sem_pred_batch = panoptic_fusion(preds, all_categories, stuff_categories, thing_categories)
-    end_fuse = time.time_ns()
-
+    # start_fuse = time.time_ns()
+    inter_pred_batch, sem_pred_batch, summary_batch = panoptic_fusion(preds, all_categories, stuff_categories, thing_categories)
+    # end_fuse = time.time_ns()
     # start_can = time.time_ns()
     panoptic_canvas_batch = panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories)
     # end_can = time.time_ns()
 
-    print("fusion fps: ",  1/((end_fuse-start_fuse)/1e9))
+    # print("fusion fps: ",  1/((end_fuse-start_fuse)/1e9))
     # print("canvas fps: ",  1/((end_can-start_can)/1e9))
     
     # TODO: panoptic_canvas_batch could be None for one of the values in the batch
@@ -378,7 +391,7 @@ def get_panoptic_results(images, preds, all_categories, stuff_categories, thing_
     my_path = os.path.dirname(__file__)
 
     for i in range(batch_size):
-        
+        summary_arr = summary_batch[i]
         canvas = panoptic_canvas_batch[i]
         img = images[i]
         im = apply_panoptic_mask_gpu(img, canvas)
@@ -398,6 +411,11 @@ def get_panoptic_results(images, preds, all_categories, stuff_categories, thing_
         plt.margins(0, 0)
         plt.gca().xaxis.set_major_locator(plt.NullLocator())
         plt.gca().yaxis.set_major_locator(plt.NullLocator())
+        c = 1
+        for obj in summary_arr:
+            ax.text(20, 30*c, '{}: {}'.format(obj["name"], obj["count_obj"]), style='italic',
+            bbox={'facecolor': 'blue', 'alpha': 0.5, 'pad': 5})
+            c = c + 1
 
         ax.imshow(im,  interpolation='nearest', aspect='auto')
         plt.axis('off')
