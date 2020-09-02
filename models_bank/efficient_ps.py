@@ -15,11 +15,11 @@ from segmentation_heads.roi_heads import roi_heads
 from utils.tensorize_batch import tensorize_batch
 import config
 
-def map_backbone(backbone_net_name, original_aspect_ratio):
+def map_backbone(backbone_net_name):
     if "EfficientNetB" in backbone_net_name:
-        return eff_net(backbone_net_name, original_aspect_ratio)
+        return eff_net(backbone_net_name)
     elif backbone_net_name == "resnet50":
-        return resnet50(original_aspect_ratio)
+        return resnet50()
 
 
 
@@ -28,9 +28,10 @@ class EfficientPS(nn.Module):
                  min_size=640, max_size=1024, image_mean=None, image_std=None):
         super(EfficientPS, self).__init__()
 
-        original_aspect_ratio = original_image_size[0]/original_image_size[1]
+        # original_aspect_ratio = original_image_size[0]/original_image_size[1]
         # self.backbone = eff_net(backbone_net_name, original_aspect_ratio)
-        self.backbone = map_backbone(backbone_net_name, original_aspect_ratio)
+        self.original_image_size = original_image_size
+        self.backbone = map_backbone(backbone_net_name)
 
 
         self.semantic_head = sem_seg_head(
@@ -73,7 +74,7 @@ class EfficientPS(nn.Module):
 
         
         if instance:
-
+            images = F.interpolate(images, size=self.original_image_size)
             feature_maps = OrderedDict([('P4', P4),
                                         ('P8', P8),
                                         ('P16', P16),
