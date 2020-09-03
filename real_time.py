@@ -14,25 +14,25 @@ from datetime import datetime
 import os.path
 
 result_type = None
-    
+
 if config.RT_SEMANTIC:
     result_type = "semantic"
-    
+
 elif config.RT_INSTANCE:
     result_type = "instance"
-    
+
 elif config.RT_PANOPTIC:
     result_type = "panoptic"
 
-#capture video
-cap = cv2.VideoCapture(config.CAM_DEVICE)
-# cap = cv2.VideoCapture("plain.avi")
+# capture video
+# cap = cv2.VideoCapture(config.CAM_DEVICE)
+cap = cv2.VideoCapture("plain.avi")
 
-if (cap.isOpened() == False): 
+if (cap.isOpened() == False):
     print("Unable to read camera feed")
 
 
-#create timestamp
+# create timestamp
 now = datetime.now()
 timestamp = datetime.timestamp(now)
 
@@ -42,11 +42,11 @@ video_filename = '{}_{}.avi'.format(config.RT_VIDEO_OUTPUT_BASENAME, timestamp)
 video_full_path = os.path.join(os.path.dirname(
     os.path.abspath(__file__)), config.RT_VIDEO_OUTPUT_FOLDER, video_filename)
 
-#write video
+# write video
 if config.SAVE_VIDEO:
     out = cv2.VideoWriter(video_full_path, cv2.VideoWriter_fourcc(
         *'DIVX'), 6, (config.ORIGINAL_INPUT_SIZE_HW[1], config.ORIGINAL_INPUT_SIZE_HW[0]))
-#empty cuda
+# empty cuda
 torch.cuda.empty_cache()
 
 # Get device
@@ -69,6 +69,8 @@ model.eval()
 all_categories, stuff_categories, thing_categories = get_stuff_thing_classes()
 
 # Define transformation pipe
+
+
 def get_transform():
     custom_transforms = []
     custom_transforms.append(transforms.ToTensor())
@@ -86,22 +88,22 @@ def get_seg_frame(frame, confidence=0.5):
     images = tensorize_batch([image], device)
 
     with torch.no_grad():
-        start = time.time_ns()
+        # start = time.time_ns()
         outputs = model(images)
-        end = time.time_ns()
-        print("model in-out fps: ", 1/((end-start)/1e9))
+        # end = time.time_ns()
+        # print("model in-out fps: ", 1/((end-start)/1e9))
 
         if result_type == "semantic":
-            sem_start = time.time_ns()
+            # sem_start = time.time_ns()
             logits = outputs[0]["semantic_logits"]
             mask = torch.argmax(logits, dim=0)
             im = apply_semantic_mask_gpu(images[0], mask, colors_pallete)
             sem_end = time.time_ns()
-            print("semantic seg fps: ", 1/((sem_end-sem_start)/1e9))
-            return im.cpu().permute(1, 2, 0).numpy()
-        
+            # print("semantic seg fps: ", 1/((sem_end-sem_start)/1e9))
+            return im.cpu().permute(1, 2, 0).numpy(), None
+
         if result_type == "instance":
-            ins_start = time.time_ns()
+            # ins_start = time.time_ns()
             masks = outputs[0]['masks']
             scores = outputs[0]['scores']
             labels = outputs[0]['labels']
@@ -112,36 +114,55 @@ def get_seg_frame(frame, confidence=0.5):
                     mask = mask.cpu().numpy()
                     mask_color = randRGB()
                     im = apply_mask(im, mask, mask_color, confidence)
-            ins_end = time.time_ns()
-            print("instance seg fps: ", 1/((ins_end-ins_start)/1e9))
-            return im
-        
+            # ins_end = time.time_ns()
+            # print("instance seg fps: ", 1/((ins_end-ins_start)/1e9))
+            return im, None
+
         if result_type == "panoptic" and len(outputs[0]['masks']) > 0:
-            pan_start = time.time_ns()
-            inter_pred_batch, sem_pred_batch = panoptic_fusion(outputs, all_categories, stuff_categories, thing_categories)
-            canvas = panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories)[0]
+            # pan_start = time.time_ns()
+            inter_pred_batch, sem_pred_batch, summary_batch = panoptic_fusion(
+                outputs, all_categories, stuff_categories, thing_categories)
+            canvas = panoptic_canvas(
+                inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories)[0]
             if canvas is None:
                 return frame
             else:
                 im = apply_panoptic_mask_gpu(images[0], canvas)
-                pan_end = time.time_ns()
-                print("panoptic fps: ", 1/((pan_end-pan_start)/1e9))
-                return im.cpu().permute(1, 2, 0).numpy()
-        
+                # pan_end = time.time_ns()
+                # print("panoptic fps: ", 1/((pan_end-pan_start)/1e9))
+                return im.cpu().permute(1, 2, 0).numpy(), summary_batch
+
         else:
             return frame
-
 
 
 
 # Video loop
 while(True):
     ret, frame = cap.read()
-    im = get_seg_frame(frame, confidence=0.5)
-    
+    im, summary_batch = get_seg_frame(frame, confidence=0.5)
+    # print(summary_batch)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    bottomLeftCornerOfText = (30, 30)
+    fontScale = 1
+    fontColor = (255, 255, 255)
+    lineType = 2
+    text = ""
+    if summary_batch:
+        summary = summary_batch[0]
+        for obj in summary:
+            text = text + '{}: {}'.format(obj["name"], obj["count_obj"]) + " - "
+
     if config.SAVE_VIDEO:
         out.write(np.uint8(im*255))
+    im = cv2.UMat(im)
 
+    cv2.putText(im, text,
+                bottomLeftCornerOfText,
+                font,
+                fontScale,
+                fontColor,
+                lineType)
     cv2.imshow('frame', im)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
