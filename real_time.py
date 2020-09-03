@@ -88,18 +88,18 @@ def get_seg_frame(frame, confidence=0.5):
     images = tensorize_batch([image], device)
 
     with torch.no_grad():
-        start = time.time_ns()
+        # start = time.time_ns()
         outputs = model(images)
-        end = time.time_ns()
-        print("model in-out fps: ", 1/((end-start)/1e9))
+        
+        # print("model in-out fps: ", 1/((end-start)/1e9))
 
         if result_type == "semantic":
-            sem_start = time.time_ns()
+            # sem_start = time.time_ns()
             logits = outputs[0]["semantic_logits"]
             mask = torch.argmax(logits, dim=0)
             im = apply_semantic_mask_gpu(images[0], mask, colors_pallete)
-            sem_end = time.time_ns()
-            print("semantic seg fps: ", 1/((sem_end-sem_start)/1e9))
+            # sem_end = time.time_ns()
+            # print("semantic seg fps: ", 1/((sem_end-sem_start)/1e9))
             return im.cpu().permute(1, 2, 0).numpy(), None
 
         if result_type == "instance":
@@ -119,7 +119,7 @@ def get_seg_frame(frame, confidence=0.5):
             return im, None
 
         if result_type == "panoptic" and len(outputs[0]['masks']) > 0:
-            pan_start = time.time_ns()
+            # pan_start = time.time_ns()
             inter_pred_batch, sem_pred_batch, summary_batch = panoptic_fusion(
                 outputs, all_categories, stuff_categories, thing_categories)
             canvas = panoptic_canvas(
@@ -128,8 +128,10 @@ def get_seg_frame(frame, confidence=0.5):
                 return frame
             else:
                 im = apply_panoptic_mask_gpu(images[0], canvas)
-                pan_end = time.time_ns()
-                print("panoptic fps: ", 1/((pan_end-pan_start)/1e9))
+                # pan_end = time.time_ns()
+                # print("panoptic fps: ", 1/((pan_end-pan_start)/1e9))
+                # end = time.time_ns()
+                # fps = 1/((end-start)/1e9)
                 return im.cpu().permute(1, 2, 0).numpy(), summary_batch
 
         else:
@@ -139,15 +141,20 @@ def get_seg_frame(frame, confidence=0.5):
 
 # Video loop
 while(True):
+    start = time.time_ns()
+
     ret, frame = cap.read()
     im, summary_batch = get_seg_frame(frame, confidence=0.5)
-    # print(summary_batch)
+
+    end = time.time_ns()
+    fps = round(1/((end-start)/1e9), 1)
+
     font = cv2.FONT_HERSHEY_SIMPLEX
     bottomLeftCornerOfText = (30, 30)
     fontScale = 0.4
     fontColor = (255, 255, 255)
     lineType = 1
-    text = ""
+    text = "fps: {} - ".format(fps)
     if summary_batch:
         summary = summary_batch[0]
         for obj in summary:
