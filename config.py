@@ -64,8 +64,8 @@ PANOPTIC =  False
 
 # -------- REAL TIME ------
 RT_INSTANCE =  False
-RT_SEMANTIC =  True 
-RT_PANOPTIC =  False 
+RT_SEMANTIC =  False
+RT_PANOPTIC =  True 
 CAM_DEVICE = 0
 SAVE_VIDEO = False
 RT_VIDEO_OUTPUT_BASENAME = "rt_semantic"

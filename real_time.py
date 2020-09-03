@@ -25,8 +25,8 @@ elif config.RT_PANOPTIC:
     result_type = "panoptic"
 
 # capture video
-# cap = cv2.VideoCapture(config.CAM_DEVICE)
-cap = cv2.VideoCapture("plain.avi")
+cap = cv2.VideoCapture(config.CAM_DEVICE)
+# cap = cv2.VideoCapture("plain.avi")
 
 if (cap.isOpened() == False):
     print("Unable to read camera feed")
@@ -144,9 +144,9 @@ while(True):
     # print(summary_batch)
     font = cv2.FONT_HERSHEY_SIMPLEX
     bottomLeftCornerOfText = (30, 30)
-    fontScale = 1
+    fontScale = 0.4
     fontColor = (255, 255, 255)
-    lineType = 2
+    lineType = 1
     text = ""
     if summary_batch:
         summary = summary_batch[0]
