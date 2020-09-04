@@ -7,6 +7,7 @@ from utils.tensorize_batch import tensorize_batch
 import torchvision.transforms as transforms
 from utils.show_bbox import colors_pallete, apply_semantic_mask_gpu, apply_mask, apply_panoptic_mask_gpu, randRGB
 from utils.panoptic_fusion import panoptic_fusion, panoptic_canvas, get_stuff_thing_classes
+from utils.get_datasets import get_transform
 import matplotlib.pyplot as plt
 from PIL import Image
 import time
@@ -25,8 +26,8 @@ elif config.RT_PANOPTIC:
     result_type = "panoptic"
 
 # capture video
-cap = cv2.VideoCapture(config.CAM_DEVICE)
-# cap = cv2.VideoCapture("plain.avi")
+# cap = cv2.VideoCapture(config.CAM_DEVICE)
+cap = cv2.VideoCapture("plain.avi")
 
 if (cap.isOpened() == False):
     print("Unable to read camera feed")
@@ -70,12 +71,6 @@ all_categories, stuff_categories, thing_categories = get_stuff_thing_classes()
 
 # Define transformation pipe
 
-
-def get_transform():
-    custom_transforms = []
-    custom_transforms.append(transforms.ToTensor())
-    # custom_transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
-    return transforms.Compose(custom_transforms)
 
 
 transforms = get_transform()

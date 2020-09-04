@@ -8,6 +8,7 @@ import torch
 from os.path import join
 import config
 import time
+import torch.nn.functional as F
 
 
 def randRGB(seed=None):
@@ -97,7 +98,9 @@ def apply_semantic_mask(image, mask, colors):
     return image
 
 def apply_semantic_mask_gpu(image, mask, colors):
-
+    if max(config.ORIGINAL_INPUT_SIZE_HW) > config.RESIZE_INPUT_LARGER_EDGE:
+        image = F.interpolate(image[None, :, :, :], size=mask.shape)
+        image = torch.squeeze(image)
     max_val = mask.max()
     for i in range(0, max_val + 1):
         for c in range(3):
@@ -114,8 +117,9 @@ def apply_semantic_mask_gpu(image, mask, colors):
     return image
 
 def apply_panoptic_mask_gpu(image, mask):
-
-
+    if max(config.ORIGINAL_INPUT_SIZE_HW) > config.RESIZE_INPUT_LARGER_EDGE:
+        image = F.interpolate(image[None, :, :, :], size=mask.shape)
+        image = torch.squeeze(image)
     num_stuff_classes = config.NUM_STUFF_CLASSES
     max_val = mask.max()
     colors = get_colors_palete(max_val)

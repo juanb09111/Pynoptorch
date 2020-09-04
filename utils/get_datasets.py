@@ -147,8 +147,10 @@ class testDataset(torch.utils.data.Dataset):
 
 def get_transform():
     custom_transforms = []
-    if max(config.ORIGINAL_INPUT_SIZE_HW) > config.RESIZE_INPUT_SMALLER_EDGE:
-        custom_transforms.append(transforms.Resize(config.RESIZE_INPUT_SMALLER_EDGE))
+    if max(config.ORIGINAL_INPUT_SIZE_HW) > config.RESIZE_INPUT_LARGER_EDGE:
+        aspect_ratio = config.ORIGINAL_INPUT_SIZE_HW[0]/config.ORIGINAL_INPUT_SIZE_HW[1]
+        height = math.ceil(aspect_ratio*config.RESIZE_INPUT_LARGER_EDGE)
+        custom_transforms.append(transforms.Resize((height, config.RESIZE_INPUT_LARGER_EDGE)))
     custom_transforms.append(transforms.ToTensor())
     # custom_transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
     return transforms.Compose(custom_transforms)
