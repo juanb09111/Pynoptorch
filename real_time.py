@@ -26,8 +26,8 @@ elif config.RT_PANOPTIC:
     result_type = "panoptic"
 
 # capture video
-# cap = cv2.VideoCapture(config.CAM_DEVICE)
-cap = cv2.VideoCapture("plain.avi")
+cap = cv2.VideoCapture(config.CAM_DEVICE)
+# cap = cv2.VideoCapture("plain.avi")
 
 if (cap.isOpened() == False):
     print("Unable to read camera feed")
@@ -38,7 +38,7 @@ now = datetime.now()
 timestamp = datetime.timestamp(now)
 
 # Video filename
-video_filename = '{}_{}.avi'.format(config.RT_VIDEO_OUTPUT_BASENAME, timestamp)
+video_filename = '{}_{}_{}.avi'.format(config.RT_VIDEO_OUTPUT_BASENAME, result_type, timestamp)
 
 video_full_path = os.path.join(os.path.dirname(
     os.path.abspath(__file__)), config.RT_VIDEO_OUTPUT_FOLDER, video_filename)
@@ -120,7 +120,7 @@ def get_seg_frame(frame, confidence=0.5):
             canvas = panoptic_canvas(
                 inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories)[0]
             if canvas is None:
-                return frame
+                return frame, summary_batch
             else:
                 im = apply_panoptic_mask_gpu(images[0], canvas)
                 # pan_end = time.time_ns()
@@ -130,7 +130,7 @@ def get_seg_frame(frame, confidence=0.5):
                 return im.cpu().permute(1, 2, 0).numpy(), summary_batch
 
         else:
-            return frame
+            return frame, None
 
 
 
@@ -155,8 +155,6 @@ while(True):
         for obj in summary:
             text = text + '{}: {}'.format(obj["name"], obj["count_obj"]) + " - "
 
-    if config.SAVE_VIDEO:
-        out.write(np.uint8(im*255))
     im = cv2.UMat(im)
 
     cv2.putText(im, text,
@@ -165,6 +163,10 @@ while(True):
                 fontScale,
                 fontColor,
                 lineType)
+
+    if config.SAVE_VIDEO:
+        out.write(np.uint8(im.get().astype('f')*255))
+
     cv2.imshow('frame', im)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
