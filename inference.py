@@ -48,10 +48,9 @@ def view_masks(model,
         file_names = list(map(lambda ann: ann["file_name"], anns))
         model.eval()
         with torch.no_grad():
-            start = time.time_ns()
+
             outputs = model(images)
-            end = time.time_ns()
-            print("model in-out fps: ", 1/((end-start)/1e9))
+
             if result_type == "panoptic":
                 panoptic_fusion.get_panoptic_results(
                     images, outputs, all_categories, stuff_categories, thing_categories, folder, file_names)
