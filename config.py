@@ -88,6 +88,8 @@ RT_VIDEO_OUTPUT_FOLDER = "rt_videos/"
 
 # ----- MAKE VIDEO --------
 
+FPS = 5
+
 # VIDEO_CONTAINER_FOLDER = "EfficientPS_resnet50_results_instance_1596320454.678718/"
 # VIDEO_OUTOUT_FILENAME = "instance_segmentation.avi"
 
