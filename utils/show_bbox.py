@@ -189,7 +189,8 @@ def get_semantic_masks(img, preds, num_classes, folder, file_name):
     logits = preds["semantic_logits"]
     mask = torch.argmax(logits, dim=0)
     
-    colors = colors_pallete
+    colors = get_colors_palete(num_classes)
+    # colors = colors_pallete
     im = apply_semantic_mask_gpu(img, mask, colors)
 
     end_sem = time.time_ns()
@@ -199,7 +200,6 @@ def get_semantic_masks(img, preds, num_classes, folder, file_name):
     file_name_basename = os.path.basename(file_name)
     filename = os.path.splitext(file_name_basename)[0]
 
-    # colors = get_colors_palete(num_classes)
 
     my_path = os.path.dirname(__file__)
     width = im.shape[1]

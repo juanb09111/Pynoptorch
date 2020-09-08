@@ -6,8 +6,9 @@ RES_LOC = "tmp/res/"
 
 TRAIN_DIR = "data_train/"
 VAL_DIR = "data_val/"
-TEST_DIR = "data_test/"
+TEST_DIR = "data_test/set11/"
 
+TRAIN_RES_FILENAME = "training_results.txt"
 
 DATA_LOADER_TRAIN_FILANME = "data_loader_train.pth"
 DATA_LOADER_VAL_FILENAME = "data_loader_val.pth"

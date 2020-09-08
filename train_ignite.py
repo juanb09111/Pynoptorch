@@ -12,6 +12,8 @@ import models
 from utils import map_hasty
 from utils import get_splits
 
+import sys
+
 # %%
 
 
@@ -19,58 +21,16 @@ def __update_model(_, batch):
     model.train()
     optimizer.zero_grad()
     imgs, annotations = batch[0], batch[1]
+
     imgs = list(img for img in imgs)
-    # imgs = tensorize_batch(imgs, device)
-    # annotations = [{k: v.to(device) for k, v in t.items()}
-    #                for t in annotations]
-
-    # Array idexes of anns with no instance annotations
-    no_instance_anns_idx = []
-    # Array idexes of anns with instance annotations
-    instance_anns_idx = []
-    for idx, ann in enumerate(annotations):
-        if ann["num_instances"] == 0:
-            no_instance_anns_idx.append(idx)
-        else:
-            instance_anns_idx.append(idx)
-
-    losses = 0
-    if len(no_instance_anns_idx) > 0:
-        # For anns without instance anns deactivate instance branch
-        anns = [annotations[idx] for idx in no_instance_anns_idx]
-        no_instance_imgs = [imgs[idx] for idx in no_instance_anns_idx]
-
-        no_instance_imgs = tensorize_batch(no_instance_imgs, device)
-        anns = [{k: v.to(device) for k, v in t.items()}
-                for t in anns]
-
-        loss_dict = model(no_instance_imgs, anns=anns, instance=False)
-        losses = sum(loss for loss in loss_dict.values())
-        losses.backward()
-        optimizer.step()
-
-        if len(no_instance_anns_idx) < len(annotations):
-            # For the rest of anns with instance anns activate instance branch
-            anns = [annotations[idx] for idx in instance_anns_idx]
-            instance_imgs = [imgs[idx] for idx in instance_anns_idx]
-
-            instance_imgs = tensorize_batch(no_instance_imgs, device)
-            anns = [{k: v.to(device) for k, v in t.items()}
-                    for t in anns]
-
-            loss_dict = model(instance_imgs, anns=anns)
-            losses = sum(loss for loss in loss_dict.values())
-            losses.backward()
-            optimizer.step()
-    else:
-        # If no "no instance anns" then run model with both semantic and instance branch active
-        imgs = tensorize_batch(imgs, device)
-        annotations = [{k: v.to(device) for k, v in t.items()}
-                       for t in annotations]
-        loss_dict = model(imgs, anns=annotations)
-        losses = sum(loss for loss in loss_dict.values())
-        losses.backward()
-        optimizer.step()
+    
+    imgs = tensorize_batch(imgs, device)
+    annotations = [{k: v.to(device) for k, v in t.items()}
+                   for t in annotations]
+    loss_dict = model(imgs, anns=annotations)
+    losses = sum(loss for loss in loss_dict.values())
+    losses.backward()
+    optimizer.step()
 
     return losses
 
@@ -83,8 +43,11 @@ def __log_training_loss(trainer_engine):
     state_epoch = trainer_engine.state.epoch
     max_epochs = trainer_engine.state.max_epochs
     i = trainer_engine.state.iteration
-    print("Epoch {}/{} : {} - batch loss: {:.2f}".format(state_epoch,
-                                                         max_epochs, i, batch_loss))
+    text = "Epoch {}/{} : {} - batch loss: {:.2f}".format(
+        state_epoch, max_epochs, i, batch_loss)
+
+    sys.stdout = open(train_res_file, 'a+')
+    print(text)
 
 
 def __log_validation_results(trainer_engine):
@@ -95,8 +58,14 @@ def __log_validation_results(trainer_engine):
         constants.MODELS_LOC, config.MODEL_WEIGHTS_FILENAME_PREFIX, config.BACKBONE, batch_loss)
     state_dict = model.state_dict()
     torch.save(state_dict, weights_path)
-    print("Validation Results - Epoch {}/{} batch_loss: {:.2f}".format(state_epoch,
-                                                                       max_epochs, batch_loss))
+
+    sys.stdout = open(train_res_file, 'a+')
+    print("Model weights filename: ", weights_path)
+    text = "Validation Results - Epoch {}/{} batch_loss: {:.2f}".format(
+        state_epoch, max_epochs, batch_loss)
+    sys.stdout = open(train_res_file, 'a+')
+    print(text)
+
     evaluate(model=model, weights_file=weights_path,
              data_loader_val=data_loader_val_obj)
     torch.cuda.empty_cache()
@@ -104,6 +73,11 @@ def __log_validation_results(trainer_engine):
 
 if __name__ == "__main__":
 
+    train_res_file = os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), constants.RES_LOC, constants.TRAIN_RES_FILENAME)
+
+    with open(train_res_file, "w+") as training_results:
+        training_results.write("----- TRAINING RESULTS ----"+"\n")
     # Set device
     device = torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -188,7 +162,7 @@ if __name__ == "__main__":
 
         data_loader_val_filename = os.path.join(os.path.dirname(
             os.path.abspath(__file__)), constants.DATA_LOADERS_LOC, constants.DATA_LOADER_VAL_FILENAME)
-        
+
         data_loader_val_obj_filename = os.path.join(os.path.dirname(
             os.path.abspath(__file__)), constants.DATA_LOADERS_LOC, constants.DATA_LOADER_VAL_FILENAME_OBJ)
 
