@@ -20,20 +20,19 @@ ORIGINAL_INPUT_SIZE_HW = (460, 599)
 
 # MIN_SIZE = 800 # Taken from maskrcnn defaults  
 # MAX_SIZE = 1333 # Taken from maskrcnn defaults 
-MIN_SIZE = 400 # Taken from maskrcnn defaults  
-MAX_SIZE = 700 # Taken from maskrcnn defaults 
-RESIZE_INPUT_LARGER_EDGE = 1024
+MIN_SIZE = 400
+MAX_SIZE = 700
 # -------- TRAINING--------------
 DATA = "data_novatron/"
 SEMANTIC_SEGMENTATION_DATA = "semantic_segmentation_data_novatron"
 
 # DATA = "data/"
 # SEMANTIC_SEGMENTATION_DATA = "semantic_segmentation_data"
-MAX_EPOCHS = 100
+MAX_EPOCHS = 50
 
 
 # If USE_PREEXISTING_DATA_LOADERS is True new data_loaders will not be written
-USE_PREEXISTING_DATA_LOADERS = True
+USE_PREEXISTING_DATA_LOADERS = False
 DATA_LOADER_TRAIN_FILANME = "tmp/data_loaders/data_loader_train.pth"
 DATA_LOADER_VAL_FILENAME = "tmp/data_loaders/data_loader_val.pth"
 DATA_LOADER_VAL_FILENAME_OBJ = "tmp/data_loaders/data_loader_val_obj.pth"
@@ -42,7 +41,7 @@ DATA_LOADER_VAL_FILENAME_OBJ = "tmp/data_loaders/data_loader_val_obj.pth"
 # into val and train
 # Otherwise you have to split the data set manually into their respective folders:
 # constants.TRAIN_DIR and constants.VAL_DIR
-AUTOMATICALLY_SPLIT_SETS = False
+AUTOMATICALLY_SPLIT_SETS = True
 
 # Set the validation set size. This makes no difference if USE_PREEXISTING_DATA_LOADERS is True
 SPLITS = {"VAL_SIZE": 0.157}

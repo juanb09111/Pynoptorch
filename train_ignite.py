@@ -1,5 +1,6 @@
 # %%
 import os.path
+import sys
 from ignite.engine import Events, Engine
 import torch
 from utils import get_datasets
@@ -12,7 +13,6 @@ import models
 from utils import map_hasty
 from utils import get_splits
 
-import sys
 
 # %%
 
