@@ -1,6 +1,6 @@
 # All dirs relative to root
-# NUM_CLASSES = 8 #including background
-NUM_CLASSES = 11
+NUM_CLASSES = 8 #including background
+# NUM_CLASSES = 11
 BATCH_SIZE = 2
 MODEL = "EfficientPS"
 MODEL_WEIGHTS_FILENAME_PREFIX = "EfficientPS_weights"
@@ -9,25 +9,26 @@ DEVICE = None #No need to assign manually
 # BACKBONE = "EfficientNetB2"
 BACKBONE = "resnet50"
 BACKBONE_OUT_CHANNELS = 256
-# NUM_THING_CLASSES = 6 #excluding background
-# NUM_STUFF_CLASSES = 1 #excluding background
+NUM_THING_CLASSES = 6 #excluding background
+NUM_STUFF_CLASSES = 1 #excluding background
+MAX_DETECTIONS = 25
 
-NUM_THING_CLASSES = 7
-NUM_STUFF_CLASSES = 3
+# NUM_THING_CLASSES = 7
+# NUM_STUFF_CLASSES = 3
 # ORIGINAL_INPUT_SIZE_HW = (1200, 1920)
-# ORIGINAL_INPUT_SIZE_HW = (480, 640)
-ORIGINAL_INPUT_SIZE_HW = (460, 599)
+ORIGINAL_INPUT_SIZE_HW = (480, 640)
+# ORIGINAL_INPUT_SIZE_HW = (460, 599)
 
-# MIN_SIZE = 800 # Taken from maskrcnn defaults  
-# MAX_SIZE = 1333 # Taken from maskrcnn defaults 
-MIN_SIZE = 400
-MAX_SIZE = 700
+MIN_SIZE = 800 # Taken from maskrcnn defaults  
+MAX_SIZE = 1333 # Taken from maskrcnn defaults 
+# MIN_SIZE = 400
+# MAX_SIZE = 700
 # -------- TRAINING--------------
-DATA = "data_novatron/"
-SEMANTIC_SEGMENTATION_DATA = "semantic_segmentation_data_novatron"
+# DATA = "data_novatron/"
+# SEMANTIC_SEGMENTATION_DATA = "semantic_segmentation_data_novatron"
 
-# DATA = "data/"
-# SEMANTIC_SEGMENTATION_DATA = "semantic_segmentation_data"
+DATA = "data/"
+SEMANTIC_SEGMENTATION_DATA = "semantic_segmentation_data"
 MAX_EPOCHS = 50
 
 
@@ -47,8 +48,8 @@ AUTOMATICALLY_SPLIT_SETS = True
 SPLITS = {"VAL_SIZE": 0.157}
 
 # HASTY_COCO_ANN  is the coco ann file exported by hasty
-# HASTY_COCO_ANN = "coco_hasty_annotations.json"
-HASTY_COCO_ANN = "annotation_novatron_16_06.json"
+HASTY_COCO_ANN = "coco_hasty_annotations.json"
+# HASTY_COCO_ANN = "annotation_novatron_16_06.json"
 
 # COCO_ANN_TRAIN and COCO_ANN_VAL are created and saved automatically according to
 # constants.COCO_ANN_LOC/constants.ANN_TRAIN_DEFAULT_NAME
@@ -62,7 +63,9 @@ COCO_ANN_VAL = None
 
 # Set the model weights to be used for evaluation
 # MODEL_WEIGHTS_FILENAME = "tmp/models/EfficientPS_weights_maskrcnn_backbone_loss_0.57_bbx_82.8_segm_72.0.pth"
-MODEL_WEIGHTS_FILENAME = "tmp/models/EfficientPS2_weights_resnet50_loss_0.10_bbx_0.83_segm_0.85_semseg_0.74_novatron.pth"
+# MODEL_WEIGHTS_FILENAME = "tmp/models/EfficientPS2_weights_resnet50_loss_0.10_bbx_0.83_segm_0.85_semseg_0.74_novatron.pth"
+
+MODEL_WEIGHTS_FILENAME = "tmp/models/EfficientPS_weights_resnet50_loss_0.5556591153144836.pth"
 
 # Set the data loader to be used for evaluation. This can be set to None to use default filename
 DATA_LOADER = None
@@ -71,6 +74,8 @@ DATA_LOADER = None
 IOU_TYPES = ["bbox", "segm"]
 
 # ----------TEST ----------
+
+TEST_DIR = "data_test/seq/"
 
 INSTANCE =  False
 SEMANTIC =  False

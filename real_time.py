@@ -6,8 +6,9 @@ import models
 from utils.tensorize_batch import tensorize_batch
 import torchvision.transforms as transforms
 from utils.show_bbox import colors_pallete, apply_semantic_mask_gpu, apply_mask, apply_panoptic_mask_gpu, randRGB
-from utils.panoptic_fusion import panoptic_fusion, panoptic_canvas, get_stuff_thing_classes
+from utils.panoptic_fusion import panoptic_fusion, panoptic_canvas, get_stuff_thing_classes, threshold_instances, sort_by_confidence
 from utils.get_datasets import get_transform
+from utils.tracker import get_tracked_objects
 import matplotlib.pyplot as plt
 from PIL import Image
 import time
@@ -15,6 +16,10 @@ from datetime import datetime
 import os.path
 
 result_type = None
+
+prev_det = None
+new_det = None
+iou_threshold = 0.5
 
 if config.RT_SEMANTIC:
     result_type = "semantic"
@@ -26,8 +31,8 @@ elif config.RT_PANOPTIC:
     result_type = "panoptic"
 
 # capture video
-cap = cv2.VideoCapture(config.CAM_DEVICE)
-# cap = cv2.VideoCapture("plain.avi")
+# cap = cv2.VideoCapture(config.CAM_DEVICE)
+cap = cv2.VideoCapture("plain.avi")
 
 if (cap.isOpened() == False):
     print("Unable to read camera feed")
@@ -76,7 +81,8 @@ all_categories, stuff_categories, thing_categories = get_stuff_thing_classes()
 transforms = get_transform()
 
 
-def get_seg_frame(frame, confidence=0.5):
+
+def get_seg_frame(frame, prev_det, confidence=0.5):
 
     image = Image.fromarray(frame.astype('uint8'), 'RGB')
     image = transforms(image)
@@ -85,7 +91,14 @@ def get_seg_frame(frame, confidence=0.5):
     with torch.no_grad():
         # start = time.time_ns()
         outputs = model(images)
+
+        threshold_preds = threshold_instances(outputs)
+        sorted_preds  = sort_by_confidence(threshold_preds)
+
+        new_det = sorted_preds[0]
+        tracked_obj = get_tracked_objects(prev_det, new_det, iou_threshold)
         
+        # print(tracked_obj["ids"])
         # print("model in-out fps: ", 1/((end-start)/1e9))
 
         if result_type == "semantic":
@@ -113,24 +126,20 @@ def get_seg_frame(frame, confidence=0.5):
             # print("instance seg fps: ", 1/((ins_end-ins_start)/1e9))
             return im, None
 
-        if result_type == "panoptic" and len(outputs[0]['masks']) > 0:
+        if result_type == "panoptic" and len(tracked_obj['masks']) > 0:
             # pan_start = time.time_ns()
             inter_pred_batch, sem_pred_batch, summary_batch = panoptic_fusion(
-                outputs, all_categories, stuff_categories, thing_categories)
+                [tracked_obj], all_categories, stuff_categories, thing_categories)
             canvas = panoptic_canvas(
                 inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories)[0]
             if canvas is None:
-                return frame, summary_batch
+                return frame, summary_batch, new_det
             else:
                 im = apply_panoptic_mask_gpu(images[0], canvas)
-                # pan_end = time.time_ns()
-                # print("panoptic fps: ", 1/((pan_end-pan_start)/1e9))
-                # end = time.time_ns()
-                # fps = 1/((end-start)/1e9)
-                return im.cpu().permute(1, 2, 0).numpy(), summary_batch
+                return im.cpu().permute(1, 2, 0).numpy(), summary_batch, new_det
 
         else:
-            return frame, None
+            return frame, None, new_det
 
 
 
@@ -139,8 +148,9 @@ while(True):
     start = time.time_ns()
 
     ret, frame = cap.read()
-    im, summary_batch = get_seg_frame(frame, confidence=0.5)
-
+    frame = cv2.resize(frame, (640, 480))
+    im, summary_batch, new_det = get_seg_frame(frame, prev_det, confidence=0.5)
+    prev_det = new_det
     end = time.time_ns()
     fps = round(1/((end-start)/1e9), 1)
 

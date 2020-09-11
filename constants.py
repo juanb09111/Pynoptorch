@@ -4,9 +4,10 @@ COCO_ANN_LOC = "tmp/coco_ann/"
 MODELS_LOC = "tmp/models/"
 RES_LOC = "tmp/res/"
 
+INFERENCE_RESULTS = "results/"
+
 TRAIN_DIR = "data_train/"
 VAL_DIR = "data_val/"
-TEST_DIR = "data_test/set11/"
 
 TRAIN_RES_FILENAME = "training_results.txt"
 

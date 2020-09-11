@@ -37,6 +37,7 @@ def get_colors_palete(num_classes):
     colors = [randRGB(i+15) for i in range(num_classes + 1)]
     return colors
 
+# panoptic_colors = get_colors_palete(300)
 
 def show_masks(img, preds, confidence, colors, file_name):
     masks = preds['masks']
@@ -114,10 +115,13 @@ def apply_semantic_mask_gpu(image, mask, colors):
     return image
 
 def apply_panoptic_mask_gpu(image, mask):
+    # print(mask)
     num_stuff_classes = config.NUM_STUFF_CLASSES
     max_val = mask.max()
-    colors = get_colors_palete(max_val)
-    colors = torch.tensor(colors)
+    # print("max_val: ", max_val)
+    # colors = get_colors_palete(max_val)
+    # print(colors)
+    colors = colors_pallete
 
     for i in range(0, max_val + 1):
         for c in range(3):
@@ -131,7 +135,8 @@ def apply_panoptic_mask_gpu(image, mask):
 
             else:
                 alpha = 0.45
-                color = randRGB(i+10)
+                # color = colors[i]
+                color = randRGB(i)
             
             image[c, :, :] = torch.where(mask == i,
                                       image[c, :, :] *
