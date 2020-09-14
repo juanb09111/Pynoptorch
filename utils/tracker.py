@@ -51,14 +51,24 @@ def get_tracked_objects(prev_det, new_det, iou_threshold):
         new_det["scores"] = new_det["scores"][0:config.MAX_DETECTIONS]
 
 
+
+    
     if prev_det is None:
         return init_tracker(new_det)
-
+    
     prev_boxes = prev_det["boxes"]
     new_boxes = new_det["boxes"]
 
+    if len(prev_boxes) == 0:
+        return init_tracker(new_det)
+
+
     ids = {"ids": torch.zeros_like(new_det["labels"])}
+    
     new_det.update(ids)
+
+    if len(new_boxes) == 0:
+        return new_det
 
     iou_matrix = get_iou_matrix(prev_boxes, new_boxes)
     # print(iou_matrix)
