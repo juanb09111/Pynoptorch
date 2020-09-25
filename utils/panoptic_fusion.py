@@ -43,7 +43,7 @@ def sort_by_confidence(preds):
                      "scores": torch.zeros_like(preds[i]["scores"]),
                      "ids": torch.zeros_like(preds[i]["labels"]),
                      "semantic_logits": torch.zeros_like(preds[i]["semantic_logits"])} for i, _ in enumerate(preds)]
-    
+
     for i in range(len(preds)):
 
         sorted_indices = torch.argsort(preds[i]["scores"])
@@ -55,6 +55,10 @@ def sort_by_confidence(preds):
             sorted_preds[i]["scores"][idx] = preds[i]["scores"][k]
             if "ids" in  preds[i].keys():
                 sorted_preds[i]["ids"][idx] = preds[i]["ids"][k]
+        
+        if "ids" not in preds[i].keys():
+            del sorted_preds[i]["ids"]
+                
 
         sorted_preds[i]["semantic_logits"] = preds[i]["semantic_logits"]
 
@@ -221,7 +225,7 @@ def fuse_logits(MLA, MLB):
     return fl_batch
 
 
-def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories):
+def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories, threshold_by_confidence=True, sort_confidence=True):
 
     inter_pred_batch = []
     sem_pred_batch = []
@@ -245,9 +249,11 @@ def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories):
 
     stuff_cat_idx = torch.LongTensor(stuff_cat_idx).to(config.DEVICE)
 
-    # confidence_thresholded = threshold_instances(preds)
+    if threshold_by_confidence:
+        preds = threshold_instances(preds)
 
-    # sorted_preds = sort_by_confidence(confidence_thresholded)
+    if sort_confidence:
+        preds = sort_by_confidence(preds)
     
     # detections_batch = sort_by_id(sorted_preds)
     MLA = get_MLA(preds)
@@ -274,16 +280,25 @@ def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories):
 
             fused_logits = fused_logits.to(config.DEVICE)
 
-            #TODO: Inferenece does not have ids
+
+            # Intermediate logits
             inter_logits = torch.cat((stuff_sem_logits, fused_logits))
+
+            # Intermediate predictions
             inter_pred = torch.argmax(inter_logits, dim=0)
-            obj_ids = preds[i]["ids"]
-            stuff_layers_len = len(stuff_cat_idx)
-            for idx, obj_id in enumerate(obj_ids):
+            
+            if "ids" in preds[i].keys():
+                obj_ids = preds[i]["ids"]
+                
+                stuff_layers_len = len(stuff_cat_idx)
+                for idx, obj_id in enumerate(obj_ids):
 
-                inter_pred = torch.where(inter_pred == stuff_layers_len + idx, obj_id, inter_pred)
+                    inter_pred = torch.where(inter_pred == stuff_layers_len + idx, obj_id, inter_pred)
 
+            # Semantic predictions
             sem_pred = torch.argmax(sem_logits, dim=0)
+
+
             inter_pred_batch.append(inter_pred)
 
             sem_pred_batch.append(sem_pred)

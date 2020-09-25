@@ -11,7 +11,11 @@ BACKBONE = "resnet50"
 BACKBONE_OUT_CHANNELS = 256
 NUM_THING_CLASSES = 6 #excluding background
 NUM_STUFF_CLASSES = 1 #excluding background
+
+# Object tracking
 MAX_DETECTIONS = 25
+NUM_FRAMES = 5
+RESET_IDS_AFTER = 5
 
 # NUM_THING_CLASSES = 7
 # NUM_STUFF_CLASSES = 3
@@ -22,7 +26,7 @@ ORIGINAL_INPUT_SIZE_HW = (480, 640)
 MIN_SIZE = 800 # Taken from maskrcnn defaults  
 MAX_SIZE = 1333 # Taken from maskrcnn defaults 
 # MIN_SIZE = 400
-# MAX_SIZE = 700
+# MAX_SIZE = 7007
 # -------- TRAINING--------------
 # DATA = "data_novatron/"
 # SEMANTIC_SEGMENTATION_DATA = "semantic_segmentation_data_novatron"
