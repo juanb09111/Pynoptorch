@@ -123,7 +123,7 @@ def apply_panoptic_mask_gpu(image, mask):
     # print(colors)
     colors = colors_pallete
 
-    for i in range(0, max_val + 1):
+    for i in range(1, max_val + 1):
         for c in range(3):
             if i == 0:
                 alpha = 0.25

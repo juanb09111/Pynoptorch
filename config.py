@@ -1,7 +1,7 @@
 # All dirs relative to root
 NUM_CLASSES = 8 #including background
 # NUM_CLASSES = 11
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 MODEL = "EfficientPS"
 MODEL_WEIGHTS_FILENAME_PREFIX = "EfficientPS_weights"
 DEVICE = None #No need to assign manually
@@ -91,7 +91,7 @@ RT_SEMANTIC =  False
 RT_PANOPTIC =  True 
 CAM_DEVICE = 0
 SAVE_VIDEO = False
-RT_VIDEO_OUTPUT_BASENAME = "rt_semantic"
+RT_VIDEO_OUTPUT_BASENAME = "rt"
 RT_VIDEO_OUTPUT_FOLDER = "rt_videos/"
 
 # ----- MAKE VIDEO --------
