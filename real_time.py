@@ -5,7 +5,7 @@ import config
 import models
 from utils.tensorize_batch import tensorize_batch
 import torchvision.transforms as transforms
-from utils.show_bbox import colors_pallete, apply_semantic_mask_gpu, apply_mask, apply_panoptic_mask_gpu, randRGB
+from utils.show_bbox import colors_pallete, apply_semantic_mask_gpu, apply_panoptic_mask_gpu, randRGB, apply_instance_masks
 from utils.panoptic_fusion import panoptic_fusion, panoptic_canvas, get_stuff_thing_classes, threshold_instances, sort_by_confidence
 from utils.get_datasets import get_transform
 from utils.tracker import get_tracked_objects
@@ -95,27 +95,27 @@ def get_seg_frame(frame, prev_det, confidence=0.5):
         sorted_preds = sort_by_confidence(threshold_preds)
 
 
+        if config.OBJECT_TRACKING and result_type != "semantic":
+            tracked_obj = None
+            if prev_det is None:
+                tracked_obj = get_tracked_objects(
+                    None, sorted_preds[0]["boxes"], None, sorted_preds[0]["labels"], iou_threshold)
+            else:
+                tracked_obj = get_tracked_objects(
+                    prev_det[0]["boxes"], sorted_preds[0]["boxes"], prev_det[0]["labels"], sorted_preds[0]["labels"], iou_threshold)
 
-        tracked_obj = None
-        if prev_det is None:
-            tracked_obj = get_tracked_objects(
-                None, sorted_preds[0]["boxes"], None, sorted_preds[0]["labels"], iou_threshold)
-        else:
-            tracked_obj = get_tracked_objects(
-                prev_det[0]["boxes"], sorted_preds[0]["boxes"], prev_det[0]["labels"], sorted_preds[0]["labels"], iou_threshold)
 
+            sorted_preds[0]["ids"] = tracked_obj
 
-        sorted_preds[0]["ids"] = tracked_obj
-
-        if len(tracked_obj) > 0:
-            sorted_preds[0]["boxes"] = sorted_preds[0]["boxes"][:len(
-                tracked_obj)]
-            sorted_preds[0]["masks"] = sorted_preds[0]["masks"][:len(
-                tracked_obj)]
-            sorted_preds[0]["scores"] = sorted_preds[0]["scores"][:len(
-                tracked_obj)]
-            sorted_preds[0]["labels"] = sorted_preds[0]["labels"][:len(
-                tracked_obj)]
+            if len(tracked_obj) > 0:
+                sorted_preds[0]["boxes"] = sorted_preds[0]["boxes"][:len(
+                    tracked_obj)]
+                sorted_preds[0]["masks"] = sorted_preds[0]["masks"][:len(
+                    tracked_obj)]
+                sorted_preds[0]["scores"] = sorted_preds[0]["scores"][:len(
+                    tracked_obj)]
+                sorted_preds[0]["labels"] = sorted_preds[0]["labels"][:len(
+                    tracked_obj)]
 
 
         if result_type == "semantic":
@@ -124,22 +124,15 @@ def get_seg_frame(frame, prev_det, confidence=0.5):
             mask = torch.argmax(logits, dim=0)
             im = apply_semantic_mask_gpu(images[0], mask, colors_pallete)
 
-            return im.cpu().permute(1, 2, 0).numpy(), None
+            return im.cpu().permute(1, 2, 0).numpy(), None, None
 
         if result_type == "instance":
+            idx = (sorted_preds[0]["labels"] == 3).nonzero().view(1, -1)
 
-            masks = outputs[0]['masks']
-            scores = outputs[0]['scores']
-            labels = outputs[0]['labels']
-            im = frame/255
-            for i, mask in enumerate(masks):
-                if scores[i] > confidence and labels[i] > 0:
-                    mask = mask[0]
-                    mask = mask.cpu().numpy()
-                    mask_color = randRGB()
-                    im = apply_mask(im, mask, mask_color, confidence)
+            im = apply_instance_masks(images[0], sorted_preds[0]['masks'], 0.5, idx, ids=sorted_preds[0]["ids"])
 
-            return im, None
+
+            return im.cpu().permute(1, 2, 0).numpy(), None, sorted_preds
 
         if result_type == "panoptic" and len(sorted_preds[0]["masks"]) > 0:
 

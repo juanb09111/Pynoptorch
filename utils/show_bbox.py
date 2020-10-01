@@ -70,15 +70,43 @@ def show_masks(img, preds, confidence, colors, file_name):
         my_path, '../maskRCNN_results_mask/{}.png'.format(file_name)))
 
 
-def apply_mask(image, mask, color, confidence, alpha=0.5):
-    """Apply the given mask to the image.
-    """
-    for c in range(3):
-        image[:, :, c] = np.where(mask > confidence,
-                                  image[:, :, c] *
-                                  (1 - alpha) + alpha * color[c],
-                                  image[:, :, c])
+def apply_instance_masks(image, masks, confidence, ix, ids=None):
+
+    masks = masks.squeeze(1)
+    
+    background_mask = torch.zeros((1, *masks[0].shape), device=config.DEVICE)
+    background_mask = background_mask.new_full(background_mask.shape, confidence)
+    
+    masks = torch.cat([background_mask, masks], dim=0)
+    
+    mask_argmax = torch.argmax(masks, dim=0)
+    
+    mask = torch.tensor(background_mask, dtype=torch.long, device=config.DEVICE)
+    if ids is not None:
+        for idx, obj_id in enumerate(ids):
+            mask = torch.where((mask_argmax == idx + 1), obj_id, mask)
+
+    max_val = mask.max()
+
+    for i in range(1, max_val + 1):
+        for c in range(3):
+            alpha = 0.45
+            color = randRGB(i)
+            image[c, :, :] = torch.where(mask == i,
+                                      image[c, :, :] *
+                                      (1 - alpha) + alpha * color[c],
+                                      image[c, :, :])
     return image
+
+# def apply_mask(image, mask, color, confidence, alpha=0.5):
+#     """Apply the given mask to the image.
+#     """
+#     for c in range(3):
+#         image[:, :, c] = np.where(mask > confidence,
+#                                   image[:, :, c] *
+#                                   (1 - alpha) + alpha * color[c],
+#                                   image[:, :, c])
+#     return image
 
 
 def apply_semantic_mask(image, mask, colors):
@@ -100,12 +128,10 @@ def apply_semantic_mask(image, mask, colors):
 
 def apply_semantic_mask_gpu(image, mask, colors):
     max_val = mask.max()
-    for i in range(0, max_val + 1):
+    for i in range(1, max_val + 1):
         for c in range(3):
-            if i == 0:
-                alpha = 0.25
-            else:
-                alpha = 0.45
+            
+            alpha = 0.45
             color = colors[i]
             image[c, :, :] = torch.where(mask == i,
                                       image[c, :, :] *
@@ -125,11 +151,8 @@ def apply_panoptic_mask_gpu(image, mask):
 
     for i in range(1, max_val + 1):
         for c in range(3):
-            if i == 0:
-                alpha = 0.25
-                color = colors[i]
 
-            elif i <= num_stuff_classes:
+            if i <= num_stuff_classes:
                 color = colors[i]
                 alpha = 0.45
 
