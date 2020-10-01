@@ -31,8 +31,7 @@ elif config.RT_PANOPTIC:
     result_type = "panoptic"
 
 # capture video
-# cap = cv2.VideoCapture(config.CAM_DEVICE)
-cap = cv2.VideoCapture("plain.avi")
+cap = cv2.VideoCapture(config.CAM_SOURCE)
 
 if (cap.isOpened() == False):
     print("Unable to read camera feed")

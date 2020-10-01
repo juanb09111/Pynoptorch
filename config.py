@@ -15,7 +15,6 @@ NUM_STUFF_CLASSES = 1 #excluding background
 # Object tracking
 MAX_DETECTIONS = 25
 NUM_FRAMES = 5
-RESET_IDS_AFTER = 5
 
 # NUM_THING_CLASSES = 7
 # NUM_STUFF_CLASSES = 3
@@ -89,7 +88,8 @@ PANOPTIC =  True
 RT_INSTANCE =  False
 RT_SEMANTIC =  False
 RT_PANOPTIC =  True 
-CAM_DEVICE = 0
+CAM_SOURCE = 0
+# CAM_SOURCE = "plain.avi"
 SAVE_VIDEO = False
 RT_VIDEO_OUTPUT_BASENAME = "rt"
 RT_VIDEO_OUTPUT_FOLDER = "rt_videos/"
