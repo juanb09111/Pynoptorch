@@ -83,29 +83,20 @@ transforms = get_transform()
 
 def get_seg_frame(frame, prev_det, confidence=0.5):
 
-    # start_real = time.time_ns()
-    start_image = time.time_ns()
     image = Image.fromarray(frame.astype('uint8'), 'RGB')
     image = transforms(image)
     images = tensorize_batch([image], device)
-    stop_image = time.time_ns()
-    time_image = stop_image - start_image
+
 
     with torch.no_grad():
 
-        start_model = time.time_ns()
         outputs = model(images)
-        stop_model = time.time_ns()
-        time_model = stop_model - start_model
-        # print("model", 1/((stop_model - start_model)/1e9))
 
-        sort_start = time.time_ns()
         threshold_preds = threshold_instances(outputs)
         sorted_preds = sort_by_confidence(threshold_preds)
-        sort_stop = time.time_ns()
-        time_sort = sort_stop - sort_start
 
-        start_trk = time.time_ns()
+
+
         tracked_obj = None
         if prev_det is None:
             tracked_obj = get_tracked_objects(
@@ -113,13 +104,8 @@ def get_seg_frame(frame, prev_det, confidence=0.5):
         else:
             tracked_obj = get_tracked_objects(
                 prev_det[0]["boxes"], sorted_preds[0]["boxes"], prev_det[0]["labels"], sorted_preds[0]["labels"], iou_threshold)
-        stop_trk = time.time_ns()
-        trk_time = stop_trk - start_trk
-        # print("trk", 1/((stop_trk - start_trk)/1e9))
 
-        #
 
-        filter_start = time.time_ns()
         sorted_preds[0]["ids"] = tracked_obj
 
         if len(tracked_obj) > 0:
@@ -132,20 +118,17 @@ def get_seg_frame(frame, prev_det, confidence=0.5):
             sorted_preds[0]["labels"] = sorted_preds[0]["labels"][:len(
                 tracked_obj)]
 
-        filter_stop = time.time_ns()
-        filter_time = filter_stop - filter_start
 
         if result_type == "semantic":
-            # sem_start = time.time_ns()
+
             logits = outputs[0]["semantic_logits"]
             mask = torch.argmax(logits, dim=0)
             im = apply_semantic_mask_gpu(images[0], mask, colors_pallete)
-            # sem_end = time.time_ns()
-            # print("semantic seg fps: ", 1/((sem_end-sem_start)/1e9))
+
             return im.cpu().permute(1, 2, 0).numpy(), None
 
         if result_type == "instance":
-            # ins_start = time.time_ns()
+
             masks = outputs[0]['masks']
             scores = outputs[0]['scores']
             labels = outputs[0]['labels']
@@ -156,46 +139,27 @@ def get_seg_frame(frame, prev_det, confidence=0.5):
                     mask = mask.cpu().numpy()
                     mask_color = randRGB()
                     im = apply_mask(im, mask, mask_color, confidence)
-            # ins_end = time.time_ns()
-            # print("instance seg fps: ", 1/((ins_end-ins_start)/1e9))
+
             return im, None
 
         if result_type == "panoptic" and len(sorted_preds[0]["masks"]) > 0:
-            start_pan = time.time_ns()
+
             # Get intermediate prediction and semantice prediction
             inter_pred_batch, sem_pred_batch, summary_batch = panoptic_fusion(
                 sorted_preds, all_categories, stuff_categories, thing_categories, threshold_by_confidence=False, sort_confidence=False)
             canvas = panoptic_canvas(
                 inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories)[0]
 
-            # print("trans", 1/((trans_stop - trans_start)/1e9))
-            stop_pan = time.time_ns()
-            pan_time = stop_pan - start_pan
-            # print("pan", 1/((stop_pan - start_pan)/1e9))
             if canvas is None:
-                # trans_stop = time.time_ns()
-                # print("trans", 1/((trans_stop - trans_start)/1e9))
                 return frame, summary_batch, sorted_preds
             else:
-                start_mask = time.time_ns()
+
                 im = apply_panoptic_mask_gpu(
                     images[0], canvas).cpu().permute(1, 2, 0).numpy()
-                stop_mask = time.time_ns()
-                mask_time = stop_mask - start_mask
-
-                total_time = time_image + time_model + time_sort + trk_time + filter_time + pan_time + mask_time
-                # print("trk_time", trk_time)
-                print(time_image*100/total_time, time_model*100/total_time, time_sort*100/total_time, trk_time * 100/total_time, filter_time*100/total_time, pan_time*100/total_time, mask_time*100/total_time)
-                # stop_real = time.time_ns()
-                # time_real = stop_real- start_real
-                # print((total_time-time_real)/1e9, total_time)
-                # print("mask", 1/((stop_mask - start_mask)/1e9))
-                # trans_stop = time.time_ns()
 
                 return im, summary_batch, sorted_preds
 
         else:
-            # print("trans", 1/((trans_stop - trans_start)/1e9))
             return frame, None, sorted_preds
 
 
@@ -209,7 +173,7 @@ while(True):
     prev_det = new_det
     end = time.time_ns()
     fps = round(1/((end-start)/1e9), 1)
-    # print("fps", end-start)
+
 
     font = cv2.FONT_HERSHEY_SIMPLEX
     bottomLeftCornerOfText = (30, 30)
