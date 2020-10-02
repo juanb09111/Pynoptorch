@@ -5,11 +5,11 @@ import config
 import models
 from utils.tensorize_batch import tensorize_batch
 import torchvision.transforms as transforms
-from utils.show_bbox import colors_pallete, apply_semantic_mask_gpu, apply_panoptic_mask_gpu, randRGB, apply_instance_masks
+from utils.show_bbox import apply_semantic_mask_gpu, apply_panoptic_mask_gpu, apply_instance_masks
 from utils.panoptic_fusion import panoptic_fusion, panoptic_canvas, get_stuff_thing_classes, threshold_instances, sort_by_confidence
 from utils.get_datasets import get_transform
 from utils.tracker import get_tracked_objects
-import matplotlib.pyplot as plt
+
 from PIL import Image
 import time
 from datetime import datetime
@@ -122,15 +122,13 @@ def get_seg_frame(frame, prev_det, confidence=0.5):
 
             logits = outputs[0]["semantic_logits"]
             mask = torch.argmax(logits, dim=0)
-            im = apply_semantic_mask_gpu(images[0], mask, colors_pallete)
+            im = apply_semantic_mask_gpu(images[0], mask, config.NUM_THING_CLASSES + config.NUM_THING_CLASSES)
 
             return im.cpu().permute(1, 2, 0).numpy(), None, None
 
         if result_type == "instance":
-            idx = (sorted_preds[0]["labels"] == 3).nonzero().view(1, -1)
-
-            im = apply_instance_masks(images[0], sorted_preds[0]['masks'], 0.5, idx, ids=sorted_preds[0]["ids"])
-
+            
+            im = apply_instance_masks(images[0], sorted_preds[0]['masks'], 0.5, ids=sorted_preds[0]["ids"])
 
             return im.cpu().permute(1, 2, 0).numpy(), None, sorted_preds
 
@@ -160,7 +158,7 @@ while(True):
 
     ret, frame = cap.read()
     start = time.time_ns()
-    frame = cv2.resize(frame, (640, 480))
+    
     im, summary_batch, new_det = get_seg_frame(frame, prev_det, confidence=0.5)
     prev_det = new_det
     end = time.time_ns()

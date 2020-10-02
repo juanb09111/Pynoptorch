@@ -13,13 +13,13 @@ NUM_THING_CLASSES = 6 #excluding background
 NUM_STUFF_CLASSES = 1 #excluding background
 
 # Object tracking
-MAX_DETECTIONS = 25
+MAX_DETECTIONS = 50
 NUM_FRAMES = 5
 
 # NUM_THING_CLASSES = 7
 # NUM_STUFF_CLASSES = 3
-# ORIGINAL_INPUT_SIZE_HW = (1200, 1920)
-ORIGINAL_INPUT_SIZE_HW = (480, 640)
+ORIGINAL_INPUT_SIZE_HW = (1200, 1920)
+# ORIGINAL_INPUT_SIZE_HW = (480, 640)
 # ORIGINAL_INPUT_SIZE_HW = (460, 599)
 
 MIN_SIZE = 800 # Taken from maskrcnn defaults  
@@ -78,7 +78,7 @@ IOU_TYPES = ["bbox", "segm"]
 
 # ----------TEST ----------
 
-TEST_DIR = "data_test/seq/"
+TEST_DIR = "data_val/"
 
 INSTANCE =  False
 SEMANTIC =  False
@@ -88,9 +88,11 @@ PANOPTIC =  True
 RT_INSTANCE =  False
 RT_SEMANTIC =  False
 RT_PANOPTIC =  True 
-CAM_SOURCE = 0
-# CAM_SOURCE = "plain.avi"
-SAVE_VIDEO = False
+
+OBJECT_TRACKING = True
+# CAM_SOURCE = 0
+CAM_SOURCE = "plain.avi"
+SAVE_VIDEO = True
 RT_VIDEO_OUTPUT_BASENAME = "rt"
 RT_VIDEO_OUTPUT_FOLDER = "rt_videos/"
 

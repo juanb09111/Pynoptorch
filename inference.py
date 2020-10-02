@@ -12,10 +12,9 @@ import torch
 from datetime import datetime
 
 
-from utils import show_bbox, panoptic_fusion, get_datasets
-import glob
+from utils import  panoptic_fusion, get_datasets
+from utils.show_bbox import apply_semantic_mask_gpu, apply_instance_masks, save_fig
 
-import time
 
 
 device = torch.device(
@@ -55,25 +54,27 @@ def view_masks(model,
                 panoptic_fusion.get_panoptic_results(
                     images, outputs, all_categories, stuff_categories, thing_categories, folder, file_names)
                 torch.cuda.empty_cache()
+            else: 
+                for idx, output in enumerate(outputs):
+                    file_name = file_names[idx]
+                    if result_type == "instance":
+                        im = apply_instance_masks(images[idx], output['masks'], 0.5)
 
-            for idx, output in enumerate(outputs):
-                file_name = file_names[idx]
-                # img = images[idx].cpu().permute(1, 2, 0).numpy()
-                if result_type == "instance":
-                    show_bbox.overlay_masks(
-                        images[idx], output, confidence, folder, file_name)
-                elif result_type == "semantic":
-                    show_bbox.get_semantic_masks(
-                        images[idx], output, num_classes, folder, file_name)
+                    elif result_type == "semantic":
+                        logits = output["semantic_logits"]
+                        mask = torch.argmax(logits, dim=0)
+                        im = apply_semantic_mask_gpu(images[idx], mask, config.NUM_THING_CLASSES + config.NUM_THING_CLASSES)
+                    
+                    save_fig(im, folder, file_name)
 
-                torch.cuda.empty_cache()
+                    torch.cuda.empty_cache()
 
 
 if __name__ == "__main__":
     torch.cuda.empty_cache()
 
     test_dir = os.path.join(os.path.dirname(
-        os.path.abspath(__file__)), constants.TEST_DIR)
+        os.path.abspath(__file__)), config.TEST_DIR)
     data_loader_test = get_datasets.get_dataloaders(
         config.BATCH_SIZE, test_dir, is_test_set=True)
 
@@ -86,7 +87,7 @@ if __name__ == "__main__":
         view_masks(model, data_loader_test, config.NUM_THING_CLASSES,
                    config.MODEL_WEIGHTS_FILENAME,
                    "instance",
-                   '{}_{}_results_instance_{}'.format(
+                   '{}{}_{}_results_instance_{}'.format(constants.INFERENCE_RESULTS,
                        config.MODEL, config.BACKBONE, timestamp),
                    confidence=0.5)
 
@@ -96,7 +97,7 @@ if __name__ == "__main__":
         view_masks(model, data_loader_test, config.NUM_THING_CLASSES + config.NUM_THING_CLASSES,
                    config.MODEL_WEIGHTS_FILENAME,
                    "semantic",
-                   '{}_{}_results_semantic_{}'.format(
+                   '{}{}_{}_results_semantic_{}'.format(constants.INFERENCE_RESULTS,
                        config.MODEL, config.BACKBONE, timestamp),
                    confidence=0.5)
 
@@ -106,6 +107,6 @@ if __name__ == "__main__":
         view_masks(model, data_loader_test, config.NUM_THING_CLASSES + config.NUM_THING_CLASSES,
                    config.MODEL_WEIGHTS_FILENAME,
                    "panoptic",
-                   '{}_{}_results_panoptic_{}'.format(
+                   '{}{}_{}_results_panoptic_{}'.format(constants.INFERENCE_RESULTS,
                        config.MODEL, config.BACKBONE, timestamp),
                    confidence=0.5)
