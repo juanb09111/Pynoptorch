@@ -22,7 +22,7 @@ frame = cv2.imread(os.path.join(data_dir, images[0]))
 height, width, layers = frame.shape
 
 out = cv2.VideoWriter(config.VIDEO_OUTOUT_FILENAME, cv2.VideoWriter_fourcc(
-    *'DIVX'), 10, (width, height))
+    *'DIVX'), config.FPS, (width, height))
 
 
 for img in images:

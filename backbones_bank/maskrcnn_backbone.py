@@ -6,14 +6,14 @@ import torchvision
 import math
 
 class MaskRCNN_backbone(nn.Module):
-    def __init__(self, original_aspect_ratio):
+    def __init__(self):
         super().__init__()
-        self.resolution = (math.ceil(1024*original_aspect_ratio), 1024)
+        # self.resolution = (math.ceil(1024*original_aspect_ratio), 1024)
         maskrcnn = torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=True)
         self.backbone = maskrcnn.backbone
     def forward(self, x):
         
-        x = F.interpolate(x, size=self.resolution)
+        # x = F.interpolate(x, size=self.resolution)
         x = self.backbone(x)
 
         return x["0"], x["1"], x["2"], x["3"]

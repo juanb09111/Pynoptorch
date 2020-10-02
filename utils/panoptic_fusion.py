@@ -4,7 +4,8 @@ import os.path
 import json
 import config
 import matplotlib.pyplot as plt
-from .show_bbox import apply_panoptic_mask
+from .show_bbox import apply_panoptic_mask_gpu
+import time
 
 
 def threshold_instances(preds, threshold=0.5):
@@ -13,20 +14,26 @@ def threshold_instances(preds, threshold=0.5):
         mask_logits, bbox_pred, class_pred, confidence = preds[i][
             "masks"], preds[i]["boxes"], preds[i]["labels"], preds[i]["scores"]
 
+        if "ids" in preds[i].keys():
+            ids = preds[i]["ids"]
+
         indices = (confidence > threshold).nonzero().view(1, -1)
 
         mask_logits = torch.index_select(mask_logits, 0, indices.squeeze(0))
         bbox_pred = torch.index_select(bbox_pred, 0, indices.squeeze(0))
         class_pred = torch.index_select(class_pred, 0, indices.squeeze(0))
         confidence = torch.index_select(confidence, 0, indices.squeeze(0))
+        if "ids" in preds[i].keys():
+            ids = torch.index_select(ids, 0, indices.squeeze(0))
 
         preds[i]["masks"] = mask_logits
         preds[i]["boxes"] = bbox_pred
         preds[i]["labels"] = class_pred
         preds[i]["scores"] = confidence
+        if "ids" in  preds[i].keys():
+            preds[i]["ids"] = ids
 
     return preds
-
 
 def sort_by_confidence(preds):
 
@@ -34,6 +41,7 @@ def sort_by_confidence(preds):
                      "boxes": torch.zeros_like(preds[i]["boxes"]),
                      "labels": torch.zeros_like(preds[i]["labels"]),
                      "scores": torch.zeros_like(preds[i]["scores"]),
+                     "ids": torch.zeros_like(preds[i]["labels"]),
                      "semantic_logits": torch.zeros_like(preds[i]["semantic_logits"])} for i, _ in enumerate(preds)]
 
     for i in range(len(preds)):
@@ -45,10 +53,27 @@ def sort_by_confidence(preds):
             sorted_preds[i]["boxes"][idx] = preds[i]["boxes"][k]
             sorted_preds[i]["labels"][idx] = preds[i]["labels"][k]
             sorted_preds[i]["scores"][idx] = preds[i]["scores"][k]
+            if "ids" in  preds[i].keys():
+                sorted_preds[i]["ids"][idx] = preds[i]["ids"][k]
+        
+        if "ids" not in preds[i].keys():
+            del sorted_preds[i]["ids"]
+                
 
         sorted_preds[i]["semantic_logits"] = preds[i]["semantic_logits"]
 
     return sorted_preds
+
+
+def summary(labels, thing_categories):
+    count = [{"name": cat["name"], "count_obj": 0, "idx": i + 1}
+             for i, cat in enumerate(thing_categories)]
+
+    for c in count:
+        indices = [i for i, x in enumerate(labels) if x == c["idx"]]
+        c["count_obj"] = len(indices)
+
+    return count
 
 
 def get_stuff_thing_classes():
@@ -70,23 +95,21 @@ def get_stuff_thing_classes():
     return all_categories, stuff_categories, thing_categories
 
 
-def get_MLB(sorted_preds):
-
-    all_categories, _, thing_categories = get_stuff_thing_classes()
+def get_MLB(preds, all_categories, thing_categories):
 
     all_ids = list(map(lambda cat: cat["id"], all_categories))
 
     batch_mlb = []
 
     # iterate over batch
-    for _, pred in enumerate(sorted_preds):
+    for _, pred in enumerate(preds):
 
         boxes = pred["boxes"]
         classes = pred["labels"]
         sem_logits = pred["semantic_logits"]
 
         non_background_objs = len(torch.nonzero(classes))
-
+        # print("non_background_objs", non_background_objs)
         mlb_arr = torch.zeros(non_background_objs, *sem_logits[0].shape)
 
         i = 0
@@ -127,46 +150,50 @@ def get_MLB(sorted_preds):
     return batch_mlb
 
 
-def get_MLA(sorted_preds):
+def get_MLA(preds):
 
     batch_mla = []
 
-    for _, pred in enumerate(sorted_preds):
+    for _, pred in enumerate(preds):
         classes = pred["labels"]
         masks = pred["masks"]
         boxes = pred["boxes"]
 
-        non_background_objs = len(torch.nonzero(classes))
+        if masks.shape[0] > 0:
 
-        mla_arr = torch.zeros(non_background_objs, *
-                              torch.squeeze(*masks[0]).shape)
+            non_background_objs = len(torch.nonzero(classes))
+            # print("non_background_objs", non_background_objs)
+            mla_arr = torch.zeros(non_background_objs, *
+                                  torch.squeeze(*masks[0]).shape)
 
-        i = 0
+            i = 0
 
-        for j, mask in enumerate(masks):
+            for j, mask in enumerate(masks):
 
-            if classes[j] > 0:
+                if classes[j] > 0:
 
-                mask_logits = torch.zeros_like(mask[0])
+                    mask_logits = torch.zeros_like(mask[0])
 
-                box = boxes[j]
-                xmin, ymin, xmax, ymax = box
+                    box = boxes[j]
+                    xmin, ymin, xmax, ymax = box
 
-                xmin = xmin.to(dtype=torch.long)
-                ymin = ymin.to(dtype=torch.long)
-                xmax = xmax.to(dtype=torch.long)
-                ymax = ymax.to(dtype=torch.long)
+                    xmin = xmin.to(dtype=torch.long)
+                    ymin = ymin.to(dtype=torch.long)
+                    xmax = xmax.to(dtype=torch.long)
+                    ymax = ymax.to(dtype=torch.long)
 
-                box_mask_probs = mask[0][ymin:ymax, xmin:xmax]
+                    box_mask_probs = mask[0][ymin:ymax, xmin:xmax]
 
-                box_mask_logits = torch.log(
-                    box_mask_probs) - torch.log1p(-box_mask_probs)
+                    box_mask_logits = torch.log(
+                        box_mask_probs) - torch.log1p(-box_mask_probs)
 
-                mask_logits[ymin:ymax, xmin:xmax] = box_mask_logits
+                    mask_logits[ymin:ymax, xmin:xmax] = box_mask_logits
 
-                mla_arr[i] = mask_logits
+                    mla_arr[i] = mask_logits
 
-                i += 1
+                    i += 1
+        else:
+            mla_arr = []
 
         batch_mla.append(mla_arr)
 
@@ -183,24 +210,27 @@ def fuse_logits(MLA, MLB):
 
         mlb = MLB[i]
 
-        sigmoid_mla = torch.sigmoid(mla)
-        sigmoid_mlb = torch.sigmoid(mlb)
+        if len(mla) > 0 and len(mlb) > 0:
 
-        fl = (sigmoid_mla + sigmoid_mlb) * (mla + mlb)
+            sigmoid_mla = torch.sigmoid(mla)
+            sigmoid_mlb = torch.sigmoid(mlb)
 
-        fl_batch.append(fl)
+            fl = torch.mul(torch.add(sigmoid_mla, sigmoid_mlb),
+                           torch.add(mla, mlb))
+
+            fl_batch.append(fl)
+        else:
+            fl_batch.append(None)
 
     return fl_batch
 
 
-def panoptic_fusion(preds):
+def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories, threshold_by_confidence=True, sort_confidence=True):
 
     inter_pred_batch = []
     sem_pred_batch = []
-
+    summary_batch = []
     batch_size = len(preds)
-
-    all_categories, _, _ = get_stuff_thing_classes()
 
     # Get list of cat in the form of (idx, supercategory)
     cat_idx = list(map(lambda cat_tuple: (
@@ -219,75 +249,100 @@ def panoptic_fusion(preds):
 
     stuff_cat_idx = torch.LongTensor(stuff_cat_idx).to(config.DEVICE)
 
-    confidence_thresholded = threshold_instances(preds)
+    if threshold_by_confidence:
+        preds = threshold_instances(preds)
 
-    sorted_preds = sort_by_confidence(confidence_thresholded)
+    if sort_confidence:
+        preds = sort_by_confidence(preds)
+    
+    # detections_batch = sort_by_id(sorted_preds)
+    MLA = get_MLA(preds)
 
-    MLA = get_MLA(sorted_preds)
-
-    MLB = get_MLB(sorted_preds)
+    MLB = get_MLB(preds, all_categories, thing_categories)
 
     fused_logits_batch = fuse_logits(MLA, MLB)
 
     for i in range(batch_size):
 
-        fused_logits = fused_logits_batch[i]
+        labels = preds[i]["labels"]
+        
+        summary_obj = summary(labels, thing_categories)
+        summary_batch.append(summary_obj)
 
-        fused_logits = fused_logits.to(config.DEVICE)
+        fused_logits = fused_logits_batch[i]
 
         sem_logits = preds[i]["semantic_logits"]
 
         # TODO: check if background class 0 needs to be included in stuff_cat_idx
-        stuff_sem_logits = torch.index_select(
-            sem_logits, 0, stuff_cat_idx)
-        # print("suff-fused", stuff_sem_logits.shape, fused_logits.shape)
-        # intermediate logits
-        inter_logits = torch.cat((stuff_sem_logits, fused_logits))
+        stuff_sem_logits = torch.index_select(sem_logits, 0, stuff_cat_idx)
 
-        # Intermediate Prediction
-        inter_pred = torch.argmax(inter_logits, dim=0)
+        if fused_logits is not None:
 
-        # plt.figure(i)
-        # plt.imshow(inter_pred.cpu().numpy())
-
-        # Semantic Prediction includinf background class 0
-        sem_pred = torch.argmax(sem_logits, dim=0)
-
-        # plt.figure(i+10)
-        # plt.imshow(sem_pred.cpu().numpy())
-
-        inter_pred_batch.append(inter_pred)
-
-        sem_pred_batch.append(sem_pred)
-
-    return inter_pred_batch, sem_pred_batch
+            fused_logits = fused_logits.to(config.DEVICE)
 
 
-def map_include(x, classes_arr):
+            # Intermediate logits
+            inter_logits = torch.cat((stuff_sem_logits, fused_logits))
 
-    if x in classes_arr:
-        return x
-    else:
-        return 0
+            # Intermediate predictions
+            inter_pred = torch.argmax(inter_logits, dim=0)
+            
+            if "ids" in preds[i].keys():
+                obj_ids = preds[i]["ids"]
+                
+                stuff_layers_len = len(stuff_cat_idx)
+                for idx, obj_id in enumerate(obj_ids):
+
+                    inter_pred = torch.where(inter_pred == stuff_layers_len + idx, obj_id, inter_pred)
+
+            # Semantic predictions
+            sem_pred = torch.argmax(sem_logits, dim=0)
 
 
-def map_exclude(x, classes_arr):
+            inter_pred_batch.append(inter_pred)
 
-    if x in classes_arr:
-        return 0
-    else:
-        return x
+            sem_pred_batch.append(sem_pred)
+        else:
+
+            sem_pred = torch.argmax(stuff_sem_logits, dim=0)
+
+            inter_pred_batch.append(None)
+
+            sem_pred_batch.append(sem_pred)
+
+    return inter_pred_batch, sem_pred_batch, summary_batch
 
 
-def panoptic_canvas(inter_pred_batch, sem_pred_batch):
+def map_stuff(x, classes_arr):
+
+    res = torch.zeros_like(x)
+    default_value = torch.tensor(0).to(config.DEVICE)
+
+    for c in classes_arr:
+        y = torch.where(x == c, x, default_value)
+
+        res = res + y
+
+    return res
+
+
+def map_things(x, classes_arr):
+    res = torch.zeros_like(x)
+    default_value = torch.tensor(0).to(config.DEVICE)
+
+    for c in classes_arr:
+        y = torch.where(x != c, x, default_value)
+
+        res = res + y
+
+    return res
+
+
+def panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories):
 
     batch_size = len(inter_pred_batch)
 
     panoptic_canvas_batch = []
-
-    all_categories, _, _ = get_stuff_thing_classes()
-
-    # print("all_categories", all_categories)
 
     # Get list of cat in the form of (idx, supercategory)
     cat_idx = list(map(lambda cat_tuple: (
@@ -305,63 +360,60 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch):
     stuff_cat_idx = [0, *[x + 1 for x in stuff_cat_idx]]
     # print("stuff_cat_idx", stuff_cat_idx)
 
-    # Stuff classes index in intermediate prediction
+    # Stuff classes index in intermediate prediction, thi first len(stuff_cat_idx) correspond to stuff tensors
     stuff_in_inter_pred_idx = [x for x in range(len(stuff_cat_idx))]
     # print("stuff_in_inter_pred_idx", stuff_in_inter_pred_idx)
 
+    default_value = torch.tensor(0).to(config.DEVICE)
     for i in range(batch_size):
 
         inter_pred = inter_pred_batch[i]
+        # print(torch.max(inter_pred))
         sem_pred = sem_pred_batch[i]
 
-        # convert to numpy. Here the width and height are in (0,1) respectively
-        inter_pred_np = inter_pred.cpu().numpy()
-        sem_pred_np = sem_pred.cpu().numpy()
+        if inter_pred == None and sem_pred == None:
+            panoptic_canvas_batch.append(None)
 
-        # flatten numpy
-        inter_pred_flat_np = inter_pred_np.flatten()
-        sem_pred_flat_np = sem_pred_np.flatten()
+        elif inter_pred == None and sem_pred is not None:
+            panoptic_canvas_batch.append(sem_pred)
+        else:
+            # canvases in GPU
 
-        original_shape = inter_pred.shape
-        width = original_shape[1]
-        height = original_shape[0]
+            stuff_canvas_gpu = map_stuff(sem_pred, stuff_cat_idx)
 
-        # Stuff canvas
-        stuff_canvas_list = list(
-            map(lambda x: map_include(x, stuff_cat_idx), sem_pred_flat_np))
-        stuff_canvas_arr = np.array(stuff_canvas_list)
-
-        # Things canvas
-        things_canvas_list = list(map(lambda x: map_exclude(
-            x, stuff_in_inter_pred_idx), inter_pred_flat_np))
-        things_canvas_arr = np.array(things_canvas_list)
-
-        # panoptic_canvas
-        panoptic_canvas_arr = np.where(
-            things_canvas_arr == 0, stuff_canvas_arr, things_canvas_arr)
-        panoptic_canvas = panoptic_canvas_arr.reshape((height, width))
-
-        # plt.figure(i)
-        # plt.imshow(panoptic_canvas)
-
-        panoptic_canvas_batch.append(panoptic_canvas)
+            things_canvas_gpu = map_things(inter_pred, stuff_in_inter_pred_idx)
+            panoptic_canvas_gpu = torch.where(
+                things_canvas_gpu == default_value, stuff_canvas_gpu, things_canvas_gpu)
+            
+            panoptic_canvas_batch.append(panoptic_canvas_gpu)
 
     return panoptic_canvas_batch
 
 
-def get_panoptic_results(images, preds, folder, filenames):
+def get_panoptic_results(images, preds, all_categories, stuff_categories, thing_categories, folder, filenames):
+
 
     batch_size = len(preds)
 
-    inter_pred_batch, sem_pred_batch = panoptic_fusion(preds)
+    inter_pred_batch, sem_pred_batch, summary_batch = panoptic_fusion(
+        preds, all_categories, stuff_categories, thing_categories)
 
-    panoptic_canvas_batch = panoptic_canvas(inter_pred_batch, sem_pred_batch)
+    panoptic_canvas_batch = panoptic_canvas(
+        inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories)
 
+
+    # TODO: panoptic_canvas_batch could be None for one of the values in the batch
     height, width = panoptic_canvas_batch[0].shape
 
     my_path = os.path.dirname(__file__)
 
     for i in range(batch_size):
+        summary_arr = summary_batch[i]
+        canvas = panoptic_canvas_batch[i]
+        img = images[i]
+        im = apply_panoptic_mask_gpu(img, canvas)
+        # Move to cpu
+        im = im.cpu().permute(1, 2, 0).numpy()
 
         file_name_basename = os.path.basename(filenames[i])
         file_name = os.path.splitext(file_name_basename)[0]
@@ -374,11 +426,11 @@ def get_panoptic_results(images, preds, folder, filenames):
         plt.margins(0, 0)
         plt.gca().xaxis.set_major_locator(plt.NullLocator())
         plt.gca().yaxis.set_major_locator(plt.NullLocator())
-
-        canvas = panoptic_canvas_batch[i]
-
-        img = images[i].cpu().permute(1, 2, 0).numpy()
-        im = apply_panoptic_mask(img, canvas)
+        c = 1
+        for obj in summary_arr:
+            ax.text(20, 30*c, '{}: {}'.format(obj["name"], obj["count_obj"]), style='italic',
+                    bbox={'facecolor': 'blue', 'alpha': 0.5, 'pad': 5})
+            c = c + 1
 
         ax.imshow(im,  interpolation='nearest', aspect='auto')
         plt.axis('off')
