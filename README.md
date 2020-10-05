@@ -49,14 +49,13 @@ Pynoptorch
 
 # Train with ignite 
 
-First, set the backbones network in config.py. Either "resnet50" or "EfficientNetB${0-7}"
-eg,. "EfficientNetB1". Then run:
+After having organized your data simply run:
 
 ```
 python train_ignite.py
 ```
 
-The weights are saved every epoch under tmp/models/
+The weights are saved every epoch under tmp/models/ and the progress is saved ub tnp/res/training_results.txt
 
 # Evaluate
 
@@ -68,10 +67,11 @@ python eval_coco.py
 
 # Inference 
 
-To do inference simply put the images you want to do inference on under the folder /data_test. Results will be saved in folders named according to the following pattern:
+To do inference simply put the images you want to do inference on under the folder {config.TEST_DIR}. Results will be saved in folders named according to the following pattern:
 ```
 ${MODEL_NAME}_${BACKBONES_NAME}_results_${SEGMENTATION_TYPE}_${TIMESTAMP}
 ```
+Those folder are created under results/
 
 # Make video out of inference
 
@@ -81,6 +81,10 @@ and config.VIDEO_OUTOUT_FILENAME respectively. Then run:
 ```
 python make_video.py
 ```
+
+# TODO:
+
+* Create a Docker container 
 <!-- # Commit
 
 To commit to this repository please follow smart commit syntax: https://support.atlassian.com/jira-software-cloud/docs/process-issues-with-smart-commits/ -->
