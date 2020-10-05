@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import cv2
 import config
+import temp_variables
 import models
 from utils.tensorize_batch import tensorize_batch
 import torchvision.transforms as transforms
@@ -58,7 +59,7 @@ torch.cuda.empty_cache()
 # Get device
 device = torch.device(
     'cuda') if torch.cuda.is_available() else torch.device('cpu')
-config.DEVICE = device
+temp_variables.DEVICE = device
 
 # Load model
 model = models.get_model()

@@ -4,7 +4,6 @@ NUM_CLASSES = 8 #including background
 BATCH_SIZE = 1
 MODEL = "EfficientPS"
 MODEL_WEIGHTS_FILENAME_PREFIX = "EfficientPS_weights"
-DEVICE = None #No need to assign manually
 
 # BACKBONE = "EfficientNetB2"
 BACKBONE = "resnet50"

@@ -1,5 +1,6 @@
 import torch
 import config
+import temp_variables
 import numpy as np
 import numba
 from numba import jit, cuda 
@@ -48,10 +49,10 @@ def get_iou_matrix(iou_matrix, prev_boxes, new_boxes, prev_labels, new_labels):
 def init_tracker(num_ids):
 
     # Init count of frames
-    count = torch.tensor([1], device=config.DEVICE)
+    count = torch.tensor([1], device=temp_variables.DEVICE)
 
     # Init ids for first frame
-    ids_arr = torch.tensor([torch.tensor(idx + start) for idx in range(num_ids)], device=config.DEVICE)
+    ids_arr = torch.tensor([torch.tensor(idx + start) for idx in range(num_ids)], device=temp_variables.DEVICE)
     
     # Removre info from other frames if they exist
     for n in range(config.NUM_FRAMES):
@@ -75,7 +76,7 @@ def init_tracker(num_ids):
 def get_tracked_objects(prev_boxes, new_boxes, prev_labels, new_labels, iou_threshold):
 
 
-    new_ids= torch.zeros(min(config.MAX_DETECTIONS, len(new_boxes)), dtype=torch.long, device=config.DEVICE)
+    new_ids= torch.zeros(min(config.MAX_DETECTIONS, len(new_boxes)), dtype=torch.long, device=temp_variables.DEVICE)
 
     max_trk = min(config.MAX_DETECTIONS, len(new_boxes))
 
@@ -91,7 +92,7 @@ def get_tracked_objects(prev_boxes, new_boxes, prev_labels, new_labels, iou_thre
 
 
     # Calculate iou matrix
-    iou_matrix = torch.zeros(new_boxes[:max_trk].shape[0], prev_boxes.shape[0], device=config.DEVICE)
+    iou_matrix = torch.zeros(new_boxes[:max_trk].shape[0], prev_boxes.shape[0], device=temp_variables.DEVICE)
     blockspergrid = (len(prev_boxes)*len(new_boxes[:max_trk]) + (threadsperblock - 1)) // threadsperblock
     get_iou_matrix[blockspergrid, threadsperblock](iou_matrix, prev_boxes, new_boxes[:max_trk], prev_labels, new_labels)
 
@@ -120,7 +121,7 @@ def get_tracked_objects(prev_boxes, new_boxes, prev_labels, new_labels, iou_thre
             available_ids = available_ids[1:]
 
     # Update ids used in this frame, this contains all the ids used in the last config.NUM_FRAMES frames
-    active_ids_arr = torch.tensor([], device=config.DEVICE)
+    active_ids_arr = torch.tensor([], device=temp_variables.DEVICE)
 
     # Update frames FIFO
 

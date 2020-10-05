@@ -8,6 +8,7 @@ from utils.tensorize_batch import tensorize_batch
 from eval_coco import evaluate
 
 import config
+import temp_variables
 import constants
 import models
 from utils import map_hasty
@@ -82,7 +83,7 @@ if __name__ == "__main__":
     device = torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
     print("Device: ", device)
-    config.DEVICE = device
+    temp_variables.DEVICE = device
     # Empty cuda cache
     torch.cuda.empty_cache()
 
