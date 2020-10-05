@@ -14,6 +14,7 @@ from segmentation_heads.sem_seg import segmentation_head as sem_seg_head
 from segmentation_heads.roi_heads import roi_heads
 from utils.tensorize_batch import tensorize_batch
 import config
+import temp_variables
 
 def map_backbone(backbone_net_name):
     if "EfficientNetB" in backbone_net_name:
@@ -97,7 +98,7 @@ class EfficientPS(nn.Module):
             if semantic:
                 semantic_masks = list(
                     map(lambda ann: ann['semantic_mask'], anns))
-                semantic_masks = tensorize_batch(semantic_masks, config.DEVICE)
+                semantic_masks = tensorize_batch(semantic_masks, temp_variables.DEVICE)
 
                 losses["semantic_loss"] = F.cross_entropy(
                     semantic_logits, semantic_masks.long())

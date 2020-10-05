@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import torchvision
 
 import config
+import temp_variables
 from backbones_bank.tunned_maskrcnn.mask_rcnn import MaskRCNN, maskrcnn_resnet50_fpn
 
 
@@ -58,7 +59,7 @@ class EfficientPS2(nn.Module):
             if semantic:
                 semantic_masks = list(
                     map(lambda ann: ann['semantic_mask'], anns))
-                semantic_masks = tensorize_batch(semantic_masks, config.DEVICE)
+                semantic_masks = tensorize_batch(semantic_masks, temp_variables.DEVICE)
 
                 losses["semantic_loss"] = F.cross_entropy(
                     semantic_logits, semantic_masks.long())
@@ -74,7 +75,7 @@ class EfficientPS2(nn.Module):
 # device = torch.device(
 #     'cuda') if torch.cuda.is_available() else torch.device('cpu')
 # print("Device: ", device)
-# config.DEVICE = device
+# temp_variables.DEVICE = device
 
 # train_dir = os.path.join(os.path.dirname(
 #     os.path.abspath(__file__)), "..", constants.TRAIN_DIR)

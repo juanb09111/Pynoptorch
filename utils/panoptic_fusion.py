@@ -3,8 +3,9 @@ import numpy as np
 import os.path
 import json
 import config
+import temp_variables
 import matplotlib.pyplot as plt
-from .show_bbox import apply_panoptic_mask_gpu
+from .show_segmentation import apply_panoptic_mask_gpu
 import time
 
 
@@ -247,7 +248,7 @@ def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories, t
     # Add background class 0
     stuff_cat_idx = [0, *[x + 1 for x in stuff_cat_idx]]
 
-    stuff_cat_idx = torch.LongTensor(stuff_cat_idx).to(config.DEVICE)
+    stuff_cat_idx = torch.LongTensor(stuff_cat_idx).to(temp_variables.DEVICE)
 
     if threshold_by_confidence:
         preds = threshold_instances(preds)
@@ -278,7 +279,7 @@ def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories, t
 
         if fused_logits is not None:
 
-            fused_logits = fused_logits.to(config.DEVICE)
+            fused_logits = fused_logits.to(temp_variables.DEVICE)
 
 
             # Intermediate logits
@@ -316,7 +317,7 @@ def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories, t
 def map_stuff(x, classes_arr):
 
     res = torch.zeros_like(x)
-    default_value = torch.tensor(0).to(config.DEVICE)
+    default_value = torch.tensor(0).to(temp_variables.DEVICE)
 
     for c in classes_arr:
         y = torch.where(x == c, x, default_value)
@@ -328,7 +329,7 @@ def map_stuff(x, classes_arr):
 
 def map_things(x, classes_arr):
     res = torch.zeros_like(x)
-    default_value = torch.tensor(0).to(config.DEVICE)
+    default_value = torch.tensor(0).to(temp_variables.DEVICE)
 
     for c in classes_arr:
         y = torch.where(x != c, x, default_value)
@@ -364,7 +365,7 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_cate
     stuff_in_inter_pred_idx = [x for x in range(len(stuff_cat_idx))]
     # print("stuff_in_inter_pred_idx", stuff_in_inter_pred_idx)
 
-    default_value = torch.tensor(0).to(config.DEVICE)
+    default_value = torch.tensor(0).to(temp_variables.DEVICE)
     for i in range(batch_size):
 
         inter_pred = inter_pred_batch[i]

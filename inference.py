@@ -1,4 +1,5 @@
 import config
+import temp_variables
 import constants
 import models
 
@@ -13,7 +14,7 @@ from datetime import datetime
 
 
 from utils import  panoptic_fusion, get_datasets
-from utils.show_bbox import apply_semantic_mask_gpu, apply_instance_masks, save_fig
+from utils.show_segmentation import apply_semantic_mask_gpu, apply_instance_masks, save_fig
 
 
 
@@ -21,7 +22,7 @@ device = torch.device(
     'cuda') if torch.cuda.is_available() else torch.device('cpu')
 print(device)
 
-config.DEVICE = device
+temp_variables.DEVICE = device
 torch.cuda.empty_cache()
 
 all_categories, stuff_categories, thing_categories = panoptic_fusion.get_stuff_thing_classes()

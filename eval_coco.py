@@ -12,6 +12,7 @@ from pycocotools.coco import COCO
 import models
 import constants
 import config
+import temp_variables
 import sys
 
 
@@ -19,7 +20,7 @@ device = torch.device(
     'cuda') if torch.cuda.is_available() else torch.device('cpu')
 print(device)
 
-config.DEVICE = device
+temp_variables.DEVICE = device
 torch.cuda.empty_cache()
 
 

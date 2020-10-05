@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from os.path import join
 import config
+import temp_variables
 import time
 import torch.nn.functional as F
 
@@ -30,7 +31,7 @@ def apply_instance_masks(image, masks, confidence, ids=None):
 
     masks = masks.squeeze(1)
     
-    background_mask = torch.zeros((1, *masks[0].shape), device=config.DEVICE)
+    background_mask = torch.zeros((1, *masks[0].shape), device=temp_variables.DEVICE)
     background_mask = background_mask.new_full(background_mask.shape, confidence)
     
     masks = torch.cat([background_mask, masks], dim=0)
@@ -38,7 +39,7 @@ def apply_instance_masks(image, masks, confidence, ids=None):
     mask_argmax = torch.argmax(masks, dim=0)
     
     if ids is not None:
-        mask = torch.tensor(background_mask, dtype=torch.long, device=config.DEVICE)
+        mask = torch.tensor(background_mask, dtype=torch.long, device=temp_variables.DEVICE)
         for idx, obj_id in enumerate(ids):
             mask = torch.where((mask_argmax == idx + 1), obj_id, mask)
     else:
