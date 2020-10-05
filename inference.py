@@ -13,7 +13,7 @@ from datetime import datetime
 
 
 from utils import  panoptic_fusion, get_datasets
-from utils.show_bbox import apply_semantic_mask_gpu, apply_instance_masks, save_fig
+from utils.show_segmentation import apply_semantic_mask_gpu, apply_instance_masks, save_fig
 
 
 

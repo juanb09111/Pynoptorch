@@ -5,7 +5,7 @@ import config
 import models
 from utils.tensorize_batch import tensorize_batch
 import torchvision.transforms as transforms
-from utils.show_bbox import apply_semantic_mask_gpu, apply_panoptic_mask_gpu, apply_instance_masks
+from utils.show_segmentation import apply_semantic_mask_gpu, apply_panoptic_mask_gpu, apply_instance_masks
 from utils.panoptic_fusion import panoptic_fusion, panoptic_canvas, get_stuff_thing_classes, threshold_instances, sort_by_confidence
 from utils.get_datasets import get_transform
 from utils.tracker import get_tracked_objects
