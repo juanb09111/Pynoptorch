@@ -60,7 +60,7 @@ MODEL_WEIGHTS_FILENAME = "tmp/models/EfficientPS_weights_resnet50_loss_0.5556591
 DATA_LOADER = None
 IOU_TYPES = ["bbox", "segm"]
 
-# ----------TEST ----------
+# ----------INFERENCE ----------
 
 TEST_DIR = "data_val/"
 
