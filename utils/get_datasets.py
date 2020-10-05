@@ -6,6 +6,7 @@ from pycocotools.coco import COCO
 import torchvision.transforms as transforms
 from PIL import Image
 import numpy as np
+import config
 # %%
 
 
@@ -83,15 +84,24 @@ class myOwnDataset(torch.utils.data.Dataset):
 
             category_ids.append(category_id)
 
-        boxes = torch.as_tensor(boxes, dtype=torch.float32)
-        areas = torch.as_tensor(areas, dtype=torch.float32)
-        labels = torch.as_tensor(labels, dtype=torch.int64)
-        masks = torch.as_tensor(masks, dtype=torch.uint8)
+        if num_objs > 0:
+            boxes = torch.as_tensor(boxes, dtype=torch.float32)
+            areas = torch.as_tensor(areas, dtype=torch.float32)
+            labels = torch.as_tensor(labels, dtype=torch.int64)
+            masks = torch.as_tensor(masks, dtype=torch.uint8)
+            iscrowd = torch.as_tensor(iscrowd, dtype=torch.int64)
+        else:
+            boxes = torch.zeros((0, 4), dtype=torch.float32)
+            areas = torch.as_tensor((boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]))
+            labels = torch.zeros((1), dtype=torch.int64)
+            masks = torch.zeros((1 , *config.ORIGINAL_INPUT_SIZE_HW), dtype=torch.uint8)
+            iscrowd = torch.zeros((0,), dtype=torch.int64)
+
 
         # Tensorise img_id
         img_id = torch.tensor([img_id])
         # Iscrowd
-        iscrowd = torch.as_tensor(iscrowd, dtype=torch.int64)
+        
 
         category_ids = torch.as_tensor(category_ids, dtype=torch.int64)
 
@@ -105,9 +115,9 @@ class myOwnDataset(torch.utils.data.Dataset):
         my_annotation["image_id"] = img_id
         my_annotation["area"] = areas
         my_annotation["iscrowd"] = iscrowd
-        my_annotation['masks'] = masks
         my_annotation["category_ids"] = category_ids
         my_annotation["num_instances"] = num_objs
+        my_annotation['masks'] = masks
 
         if self.semantic_masks_folder is not None:
             semantic_mask = torch.as_tensor(semantic_mask, dtype=torch.uint8)
@@ -147,7 +157,6 @@ class testDataset(torch.utils.data.Dataset):
 def get_transform():
     custom_transforms = []
     custom_transforms.append(transforms.ToTensor())
-    # custom_transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
     return transforms.Compose(custom_transforms)
 
 
@@ -202,14 +211,14 @@ def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.2
                                           semantic_masks_folder=semantic_masks_folder)
         data_loader_train = torch.utils.data.DataLoader(train_set,
                                                         batch_size=batch_size,
-                                                        shuffle=True,
+                                                        shuffle=False,
                                                         num_workers=4,
                                                         collate_fn=collate_fn,
                                                         drop_last=True)
 
         data_loader_val = torch.utils.data.DataLoader(val_set,
                                                       batch_size=batch_size,
-                                                      shuffle=True,
+                                                      shuffle=False,
                                                       num_workers=4,
                                                       collate_fn=collate_fn,
                                                       drop_last=True)
@@ -219,7 +228,7 @@ def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.2
             root=root, annotation=annotation, semantic_masks_folder=semantic_masks_folder)
         data_loader = torch.utils.data.DataLoader(dataset,
                                                   batch_size=batch_size,
-                                                  shuffle=True,
+                                                  shuffle=False,
                                                   num_workers=4,
                                                   collate_fn=collate_fn,
                                                   drop_last=True)

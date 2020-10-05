@@ -4,10 +4,12 @@ COCO_ANN_LOC = "tmp/coco_ann/"
 MODELS_LOC = "tmp/models/"
 RES_LOC = "tmp/res/"
 
+INFERENCE_RESULTS = "results/"
+
 TRAIN_DIR = "data_train/"
 VAL_DIR = "data_val/"
-TEST_DIR = "data_test/"
 
+TRAIN_RES_FILENAME = "training_results.txt"
 
 DATA_LOADER_TRAIN_FILANME = "data_loader_train.pth"
 DATA_LOADER_VAL_FILENAME = "data_loader_val.pth"

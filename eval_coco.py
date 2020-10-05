@@ -12,13 +12,15 @@ from pycocotools.coco import COCO
 import models
 import constants
 import config
+import temp_variables
+import sys
 
 
 device = torch.device(
     'cuda') if torch.cuda.is_available() else torch.device('cpu')
 print(device)
 
-config.DEVICE = device
+temp_variables.DEVICE = device
 torch.cuda.empty_cache()
 
 
@@ -127,11 +129,14 @@ def get_mIoU(model, data_loader_val):
                 iou_list.append(iou)
 
     return np.mean(iou_list)
-                
 
 
 def evaluate(model=None, weights_file=None, data_loader_val=None):
     """This function performs AP evaluation using coco_eval"""
+
+    train_res_file = os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), constants.RES_LOC, constants.TRAIN_RES_FILENAME)
+
     if weights_file is None and model is None:
         # Get model weights from config
         weights_file = os.path.join(os.path.dirname(
@@ -163,6 +168,8 @@ def evaluate(model=None, weights_file=None, data_loader_val=None):
 
     # Calculate mIoU
     average_iou = get_mIoU(model, data_loader_val)
+
+    sys.stdout = open(train_res_file, 'a+')
     print("SemSeg mIoU = ", average_iou)
     # Annotation file is by default located under
     # constants.COCO_ANN_LOC/constants.ANN_VAL_DEFAULT_NAME
@@ -185,7 +192,9 @@ def evaluate(model=None, weights_file=None, data_loader_val=None):
     # Get the list of images
     img_ids = sorted(coco_gt.getImgIds())
 
+
     for iou_type in config.IOU_TYPES:
+        sys.stdout = open(train_res_file, 'a+')
         coco_eval = cocoeval.COCOeval(coco_gt, coco_dt, iou_type)
         coco_eval.params.img_ids = img_ids
         coco_eval.evaluate()
