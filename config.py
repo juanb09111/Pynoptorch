@@ -21,6 +21,7 @@ MAX_SIZE = 1333 # Taken from maskrcnn defaults
 
 
 DATA = "data/"
+LIDAR_DATA = "lidar_data/"
 SEMANTIC_SEGMENTATION_DATA = "semantic_segmentation_data"
 MAX_EPOCHS = 50
 

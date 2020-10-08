@@ -125,9 +125,6 @@ if __name__ == "__main__":
         val_ann_filename = val_ann_filename if config.COCO_ANN_VAL is None else config.COCO_ANN_VAL
         # overwrite config
 
-        # TODO: Next two lines may not be necesary
-        config.COCO_ANN_VAL = val_ann_filename
-        config.COCO_ANN_TRAIN = train_ann_filename
         # write annotations json files for every split
         map_hasty.get_split(constants.TRAIN_DIR, train_ann_filename)
         map_hasty.get_split(constants.VAL_DIR, val_ann_filename)

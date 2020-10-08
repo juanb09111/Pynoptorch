@@ -54,11 +54,12 @@ class Three_D_Branch(nn.Module):
         for module in self.children():
             module.to(device)
 
-    def show_points(self, img, lidar_points_fov, pts_2d_fov, proj_lidar2cam):
+    def show_points(self, imgs, lidar_points_fov, pts_2d_fov, proj_lidar2cam):
 
         batch_size = len(pts_2d_fov)
 
         for i in range(batch_size):
+            img = imgs[i]
             lidar_points = lidar_points_fov[i]
             # pts_2d = N x 2
             pts_2d = pts_2d_fov[i]
@@ -87,32 +88,39 @@ class Three_D_Branch(nn.Module):
             plt.xticks([])
             plt.show()
 
-    def forward(self, features, lidar_points, proj_lidar2cam, img):
+
+    def forward(self, features, lidar_points, proj_lidar2cam, imgs):
         """
             features = [batch_size, C, h, w]
-            lidar_points = [batch_size, npoints, 3]
+            lidar_points = tuple(batch_size, npoints, 3)
             proj_lidar2cam = [3, 4]
         """
         # height and width
         h, w = features.shape[2:]
 
         # project lidar to image
-        pts_2d = project_to_image_torch(
-            lidar_points.transpose(1, 2), proj_lidar2cam)
-        pts_2d = pts_2d.transpose(1, 2)
+        pts_2d = []
+        for idx, l_points in enumerate(lidar_points):
+            #add batch dimension 
+            l_points.unsqueeze_(0)
+            pts = project_to_image_torch(
+                l_points.transpose(1, 2), proj_lidar2cam)
+            #remove batch dimension 
+            l_points.squeeze_(0)
+            pts_2d.append(pts.transpose(1, 2).squeeze_(0))
 
         batch_pts_fov = []
         batch_lidar_fov = []
-
+        # print(lidar_points[0].shape)
         for idx, points in enumerate(pts_2d):
             # find points within image range and in front of lidar
             inds = torch.where((points[:, 0] < w) & (points[:, 0] >= 0) &
-                               (points[:, 1] < h) & (points[:, 1] >= 0) &
-                               (lidar_points[idx,:,0] > 0))
+                                (points[:, 1] < h) & (points[:, 1] >= 0) &
+                                (lidar_points[idx][:, 0] > 0))
             batch_lidar_fov.append(lidar_points[idx][inds])
             batch_pts_fov.append(points[inds])
 
-        self.show_points(img, batch_lidar_fov, batch_pts_fov, proj_lidar2cam)
+        self.show_points(imgs, batch_lidar_fov, batch_pts_fov, proj_lidar2cam)
 
         return batch_pts_fov
 
@@ -140,45 +148,46 @@ class FuseBlock(nn.Module):
 
 # print(out.shape)
 
-device = torch.device(
-    'cuda') if torch.cuda.is_available() else torch.device('cpu')
-print("Device: ", device)
-temp_variables.DEVICE = device
+
+# ----------------------
+# device = torch.device(
+#     'cuda') if torch.cuda.is_available() else torch.device('cpu')
+# print("Device: ", device)
+# temp_variables.DEVICE = device
 
 
-# lidar_points = torch.randint(1, 1024, (2, 200, 3), dtype=torch.float, device=device)
-# proj_lidar2cam = torch.randint(1, 1000, (3,4), device=device, dtype=torch.float)
-# # print(lidar_points, proj_lidar2cam)
+# # lidar_points = torch.randint(1, 1024, (2, 200, 3), dtype=torch.float, device=device)
+# # proj_lidar2cam = torch.randint(1, 1000, (3,4), device=device, dtype=torch.float)
+# # # print(lidar_points, proj_lidar2cam)
 
-model = Three_D_Branch(256)
-model.to(device)
-model.eval()
+# model = Three_D_Branch(256)
+# model.to(device)
+# model.eval()
 
-data_folder = os.path.join(os.path.dirname(
-    os.path.abspath(__file__)), "..", config.LIDAR_DATA)
+# data_folder = os.path.join(os.path.dirname(
+#     os.path.abspath(__file__)), "..", config.LIDAR_DATA)
 
-# Load image, calibration file, label bbox
-png_file = os.path.join(data_folder, "000114_image.png")
+# # Load image, calibration file, label bbox
+# png_file = os.path.join(data_folder, "000114_image.png")
 
-rgb = cv2.cvtColor(cv2.imread(png_file), cv2.COLOR_BGR2RGB)
-img_height, img_width, img_channel = rgb.shape
-features = torch.rand((2, 256, img_height, img_width), device=device)
-# Load calibration
-calib_file = os.path.join(data_folder, "000114_calib.txt")
-calib = read_calib_file(calib_file)
-proj_velo2cam2 = project_velo_to_cam2(calib)
-proj_velo2cam2 = torch.tensor(
-    proj_velo2cam2, device=temp_variables.DEVICE, dtype=torch.float)
-
-
-# Load Lidar PC
-pc_velo_file = os.path.join(data_folder, "000114.bin")
-pc_velo = load_velo_scan(pc_velo_file)[:, :3]
-pc_velo = torch.tensor(
-    [pc_velo, pc_velo], device=temp_variables.DEVICE, dtype=torch.float)
+# rgb = cv2.cvtColor(cv2.imread(png_file), cv2.COLOR_BGR2RGB)
+# img_height, img_width, img_channel = rgb.shape
+# features = torch.rand((2, 256, img_height, img_width), device=device)
+# # Load calibration
+# calib_file = os.path.join(data_folder, "000114_calib.txt")
+# calib = read_calib_file(calib_file)
+# proj_velo2cam2 = project_velo_to_cam2(calib)
+# proj_velo2cam2 = torch.tensor(
+#     proj_velo2cam2, device=temp_variables.DEVICE, dtype=torch.float)
 
 
+# # Load Lidar PC
+# pc_velo_file = os.path.join(data_folder, "000114.bin")
+# pc_velo = load_velo_scan(pc_velo_file)[:, :3]
+# pc_velo = torch.tensor(
+#     [pc_velo, pc_velo], device=temp_variables.DEVICE, dtype=torch.float)
 
-out = model(features, pc_velo, proj_velo2cam2, rgb)
 
-# print(out)
+# out = model(features, pc_velo, proj_velo2cam2, rgb)
+
+# # print(out)
