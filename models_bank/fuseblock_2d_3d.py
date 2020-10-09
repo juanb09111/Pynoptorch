@@ -3,7 +3,9 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from common_blocks.depth_wise_conv import depth_wise_conv
+from common_blocks.continuous_conv import ContinuousConvolution
 from utils.lidar_cam_projection import *
+from utils.tensorize_batch import tensorize_batch
 import config
 import temp_variables
 import matplotlib.pyplot as plt
@@ -77,16 +79,24 @@ class Three_D_Branch(nn.Module):
             cmap = plt.cm.get_cmap('hsv', 256)
             cmap = np.array([cmap(i) for i in range(256)])[:, :3] * 255
 
-            for i in range(num_points):
-                depth = lidar_points_2_cam[2, i]
+            for idx in range(num_points):
+                depth = lidar_points_2_cam[2, idx]
                 color = cmap[int(640.0 / depth), :]
-                cv2.circle(img, (int(torch.round(pts_2d[i, 0])),
-                                 int(torch.round(pts_2d[i, 1]))),
+                cv2.circle(img, (int(torch.round(pts_2d[idx, 0])),
+                                 int(torch.round(pts_2d[idx, 1]))),
                            2, color=tuple(color), thickness=-1)
             plt.imshow(img)
             plt.yticks([])
             plt.xticks([])
             plt.show()
+
+    def find_k_nearest(self, k, batch_lidar_fov):
+        
+
+        distances = torch.cdist(batch_lidar_fov, batch_lidar_fov, p=2)
+        _, indices = torch.topk(distances, k + 1, dim=2, largest=False)
+        indices = indices[:, :, 1:] # B x N x 3
+        return indices
 
 
     def forward(self, features, lidar_points, proj_lidar2cam, imgs):
@@ -95,34 +105,48 @@ class Three_D_Branch(nn.Module):
             lidar_points = tuple(batch_size, npoints, 3)
             proj_lidar2cam = [3, 4]
         """
+        # batch_size
+        B = features.shape[0]
+        C = features.shape[1]
+        N = lidar_points.shape[1]
         # height and width
         h, w = features.shape[2:]
 
         # project lidar to image
-        pts_2d = []
-        for idx, l_points in enumerate(lidar_points):
-            #add batch dimension 
-            l_points.unsqueeze_(0)
-            pts = project_to_image_torch(
-                l_points.transpose(1, 2), proj_lidar2cam)
-            #remove batch dimension 
-            l_points.squeeze_(0)
-            pts_2d.append(pts.transpose(1, 2).squeeze_(0))
+        pts_2d = project_to_image_torch(lidar_points.transpose(1, 2), proj_lidar2cam)
+        pts_2d = pts_2d.transpose(1,2)
 
         batch_pts_fov = []
         batch_lidar_fov = []
-        # print(lidar_points[0].shape)
+        batch_f = []
+
+        # # print(lidar_points[0].shape)
         for idx, points in enumerate(pts_2d):
             # find points within image range and in front of lidar
-            inds = torch.where((points[:, 0] < w) & (points[:, 0] >= 0) &
-                                (points[:, 1] < h) & (points[:, 1] >= 0) &
+            inds = torch.where((points[:, 0] < w -1) & (points[:, 0] >= 0) &
+                                (points[:, 1] < h -1) & (points[:, 1] >= 0) &
                                 (lidar_points[idx][:, 0] > 0))
             batch_lidar_fov.append(lidar_points[idx][inds])
             batch_pts_fov.append(points[inds])
+            
+            pts = points[inds]
+            num_points = points[inds].shape[0]
+            f = torch.zeros((num_points, C))
+            # Get features at projected points
+            for i in range(num_points):
+                x, y = pts[i]
+                x, y = int(torch.round(x)), int(torch.round(y))
+                f[i,:] =  features[idx,:,y,x]
+            batch_f.append(f)
 
-        self.show_points(imgs, batch_lidar_fov, batch_pts_fov, proj_lidar2cam)
+        batch_pts_fov = tensorize_batch(batch_pts_fov, temp_variables.DEVICE)
+        batch_lidar_fov = tensorize_batch(batch_lidar_fov, temp_variables.DEVICE)
+        batch_f = tensorize_batch(batch_f, temp_variables.DEVICE)
+        
+        batch_k_nn_indices = self.find_k_nearest(3, batch_lidar_fov)
 
-        return batch_pts_fov
+        return batch_f, batch_lidar_fov, batch_k_nn_indices
+        # return batch_pts_fov, batch_f, batch_k_nn_indices
 
 
 class FuseBlock(nn.Module):
@@ -136,58 +160,3 @@ class FuseBlock(nn.Module):
 
     def forward(self, images, anns=None, semantic=True, instance=True):
         return 0
-
-
-# features = torch.rand(2, 256, 512, 512)
-
-# model = Two_D_Branch(256)
-
-# model.eval()
-
-# out = model(features)
-
-# print(out.shape)
-
-
-# ----------------------
-# device = torch.device(
-#     'cuda') if torch.cuda.is_available() else torch.device('cpu')
-# print("Device: ", device)
-# temp_variables.DEVICE = device
-
-
-# # lidar_points = torch.randint(1, 1024, (2, 200, 3), dtype=torch.float, device=device)
-# # proj_lidar2cam = torch.randint(1, 1000, (3,4), device=device, dtype=torch.float)
-# # # print(lidar_points, proj_lidar2cam)
-
-# model = Three_D_Branch(256)
-# model.to(device)
-# model.eval()
-
-# data_folder = os.path.join(os.path.dirname(
-#     os.path.abspath(__file__)), "..", config.LIDAR_DATA)
-
-# # Load image, calibration file, label bbox
-# png_file = os.path.join(data_folder, "000114_image.png")
-
-# rgb = cv2.cvtColor(cv2.imread(png_file), cv2.COLOR_BGR2RGB)
-# img_height, img_width, img_channel = rgb.shape
-# features = torch.rand((2, 256, img_height, img_width), device=device)
-# # Load calibration
-# calib_file = os.path.join(data_folder, "000114_calib.txt")
-# calib = read_calib_file(calib_file)
-# proj_velo2cam2 = project_velo_to_cam2(calib)
-# proj_velo2cam2 = torch.tensor(
-#     proj_velo2cam2, device=temp_variables.DEVICE, dtype=torch.float)
-
-
-# # Load Lidar PC
-# pc_velo_file = os.path.join(data_folder, "000114.bin")
-# pc_velo = load_velo_scan(pc_velo_file)[:, :3]
-# pc_velo = torch.tensor(
-#     [pc_velo, pc_velo], device=temp_variables.DEVICE, dtype=torch.float)
-
-
-# out = model(features, pc_velo, proj_velo2cam2, rgb)
-
-# # print(out)

@@ -3,6 +3,7 @@ import mayavi.mlab as mlab
 import numpy as np
 import torch
 import temp_variables
+from utils.tensorize_batch import tensorize_batch
 
 
 class Box3D(object):
@@ -16,7 +17,8 @@ class Box3D(object):
 
         self.type = data[0]
         self.truncation = data[1]
-        self.occlusion = int(data[2])  # 0=visible, 1=partly occluded, 2=fully occluded, 3=unknown
+        # 0=visible, 1=partly occluded, 2=fully occluded, 3=unknown
+        self.occlusion = int(data[2])
         self.alpha = data[3]  # object observation angle [-pi..pi]
 
         # extract 2d bounding box in 0-based coordinates
@@ -30,8 +32,10 @@ class Box3D(object):
         self.h = data[8]  # box height
         self.w = data[9]  # box width
         self.l = data[10]  # box length (in meters)
-        self.t = (data[11], data[12], data[13])  # location (x,y,z) in camera coord.
-        self.ry = data[14]  # yaw angle (around Y-axis in camera coordinates) [-pi..pi]
+        # location (x,y,z) in camera coord.
+        self.t = (data[11], data[12], data[13])
+        # yaw angle (around Y-axis in camera coordinates) [-pi..pi]
+        self.ry = data[14]
 
     def in_camera_coordinate(self, is_homogenous=False):
         # 3d bounding box dimensions
@@ -64,7 +68,8 @@ class Box3D(object):
 # Projections
 # =========================================================
 def project_velo_to_cam2(calib):
-    P_velo2cam_ref = np.vstack((calib['Tr_velo_to_cam'].reshape(3, 4), np.array([0., 0., 0., 1.])))  # velo2ref_cam
+    P_velo2cam_ref = np.vstack((calib['Tr_velo_to_cam'].reshape(
+        3, 4), np.array([0., 0., 0., 1.])))  # velo2ref_cam
     R_ref2rect = np.eye(4)
     R0_rect = calib['R0_rect'].reshape(3, 3)  # ref_cam2rect
     R_ref2rect[:3, :3] = R0_rect
@@ -80,11 +85,13 @@ def project_cam2_to_velo(calib):
     R_ref2rect_inv = np.linalg.inv(R_ref2rect)  # rect2ref_cam
 
     # inverse rigid transformation
-    velo2cam_ref = np.vstack((calib['Tr_velo_to_cam'].reshape(3, 4), np.array([0., 0., 0., 1.])))  # velo2ref_cam
+    velo2cam_ref = np.vstack((calib['Tr_velo_to_cam'].reshape(
+        3, 4), np.array([0., 0., 0., 1.])))  # velo2ref_cam
     P_cam_ref2velo = np.linalg.inv(velo2cam_ref)
 
     proj_mat = R_ref2rect_inv @ P_cam_ref2velo
     return proj_mat
+
 
 def project_to_image_torch(points, proj_mat):
     """
@@ -96,13 +103,15 @@ def project_to_image_torch(points, proj_mat):
     num_pts = points.shape[2]
     batch_size = points.shape[0]
     # Change to homogenous coordinate
-    new_axis = torch.ones((batch_size, 1, num_pts), device=temp_variables.DEVICE)
+    new_axis = torch.ones((batch_size, 1, num_pts),
+                          device=temp_variables.DEVICE)
     points = torch.cat([points, new_axis], 1)
     points = torch.matmul(proj_mat, points)
     for batch in points:
-        batch[:2,:] /= batch[2,:]
-    
-    return points[:,:2,:]
+        batch[:2, :] /= batch[2, :]
+
+    return points[:, :2, :]
+
 
 def project_to_image(points, proj_mat):
     """
@@ -112,7 +121,7 @@ def project_to_image(points, proj_mat):
         proj_mat:   Projection matrix [3, 4]
     """
     num_pts = points.shape[1]
-    
+
     # Change to homogenous coordinate
     points = np.vstack((points, np.ones((1, num_pts))))
     points = proj_mat @ points
@@ -181,7 +190,8 @@ def read_calib_file(filepath):
     with open(filepath, 'r') as f:
         for line in f.readlines():
             line = line.rstrip()
-            if len(line) == 0: continue
+            if len(line) == 0:
+                continue
             key, value = line.split(':', 1)
             # The only non-float values in these files are dates, which
             # we don't care about anyway
@@ -235,13 +245,16 @@ def draw_projected_box3d(image, qs, color=(255, 255, 255), thickness=1):
     for k in range(0, 4):
         # http://docs.enthought.com/mayavi/mayavi/auto/mlab_helper_functions.html
         i, j = k, (k + 1) % 4
-        cv2.line(image, (qs[i, 0], qs[i, 1]), (qs[j, 0], qs[j, 1]), color, thickness, cv2.LINE_AA)
+        cv2.line(image, (qs[i, 0], qs[i, 1]), (qs[j, 0],
+                                               qs[j, 1]), color, thickness, cv2.LINE_AA)
 
         i, j = k + 4, (k + 1) % 4 + 4
-        cv2.line(image, (qs[i, 0], qs[i, 1]), (qs[j, 0], qs[j, 1]), color, thickness, cv2.LINE_AA)
+        cv2.line(image, (qs[i, 0], qs[i, 1]), (qs[j, 0],
+                                               qs[j, 1]), color, thickness, cv2.LINE_AA)
 
         i, j = k, k + 4
-        cv2.line(image, (qs[i, 0], qs[i, 1]), (qs[j, 0], qs[j, 1]), color, thickness, cv2.LINE_AA)
+        cv2.line(image, (qs[i, 0], qs[i, 1]), (qs[j, 0],
+                                               qs[j, 1]), color, thickness, cv2.LINE_AA)
 
     return image
 
@@ -265,7 +278,8 @@ def draw_lidar(pc, color=None, fig=None, bgcolor=(0, 0, 0), pts_scale=1, pts_mod
         fig: created or used fig
     '''
     if fig is None:
-        fig = mlab.figure(figure=None, bgcolor=bgcolor, fgcolor=None, engine=None, size=(1600, 1000))
+        fig = mlab.figure(figure=None, bgcolor=bgcolor,
+                          fgcolor=None, engine=None, size=(1600, 1000))
     if color is None:
         color = pc[:, 2]
 
@@ -282,8 +296,64 @@ def draw_lidar(pc, color=None, fig=None, bgcolor=(0, 0, 0), pts_scale=1, pts_mod
         [0., 2., 0., 0.],
         [0., 0., 2., 0.],
     ], dtype=np.float64)
-    mlab.plot3d([0, axes[0, 0]], [0, axes[0, 1]], [0, axes[0, 2]], color=(1, 0, 0), tube_radius=None, figure=fig)
-    mlab.plot3d([0, axes[1, 0]], [0, axes[1, 1]], [0, axes[1, 2]], color=(0, 1, 0), tube_radius=None, figure=fig)
-    mlab.plot3d([0, axes[2, 0]], [0, axes[2, 1]], [0, axes[2, 2]], color=(0, 0, 1), tube_radius=None, figure=fig)
+    mlab.plot3d([0, axes[0, 0]], [0, axes[0, 1]], [0, axes[0, 2]],
+                color=(1, 0, 0), tube_radius=None, figure=fig)
+    mlab.plot3d([0, axes[1, 0]], [0, axes[1, 1]], [0, axes[1, 2]],
+                color=(0, 1, 0), tube_radius=None, figure=fig)
+    mlab.plot3d([0, axes[2, 0]], [0, axes[2, 1]], [0, axes[2, 2]],
+                color=(0, 0, 1), tube_radius=None, figure=fig)
 
     return fig
+
+
+
+def find_k_nearest(k, batch_lidar_fov):
+        distances = torch.cdist(batch_lidar_fov, batch_lidar_fov, p=2)
+        _, indices = torch.topk(distances, k + 1, dim=2, largest=False)
+        indices = indices[:, :, 1:] # B x N x 3
+        return indices
+
+def pre_process_points(features, lidar_points, proj_lidar2cam):
+
+    # B = features.shape[0]
+    C = features.shape[1]
+    # N = lidar_points.shape[1]
+    # height and width
+    h, w = features.shape[2:]
+
+    # project lidar to image
+    pts_2d = project_to_image_torch(
+        lidar_points.transpose(1, 2), proj_lidar2cam)
+    pts_2d = pts_2d.transpose(1, 2)
+
+    batch_pts_fov = []
+    batch_lidar_fov = []
+    batch_f = []
+
+       # # print(lidar_points[0].shape)
+    for idx, points in enumerate(pts_2d):
+        # find points within image range and in front of lidar
+        inds = torch.where((points[:, 0] < w - 1) & (points[:, 0] >= 0) &
+                            (points[:, 1] < h - 1) & (points[:, 1] >= 0) &
+                            (lidar_points[idx][:, 0] > 0))
+        batch_lidar_fov.append(lidar_points[idx][inds])
+        batch_pts_fov.append(points[inds])
+
+        pts = points[inds]
+        num_points = points[inds].shape[0]
+        f = torch.zeros((num_points, C))
+        # Get features at projected points
+        for i in range(num_points):
+            x, y = pts[i]
+            x, y = int(torch.round(x)), int(torch.round(y))
+            f[i, :] = features[idx, :, y, x]
+        batch_f.append(f)
+
+    batch_pts_fov = tensorize_batch(batch_pts_fov, temp_variables.DEVICE)
+    batch_lidar_fov = tensorize_batch(
+        batch_lidar_fov, temp_variables.DEVICE)
+    batch_f = tensorize_batch(batch_f, temp_variables.DEVICE)
+
+    batch_k_nn_indices = find_k_nearest(3, batch_lidar_fov)
+
+    return batch_f, batch_lidar_fov, batch_k_nn_indices

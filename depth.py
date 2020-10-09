@@ -2,6 +2,7 @@ import os.path
 import sys
 from ignite.engine import Events, Engine
 import torch
+from utils.lidar_cam_projection import *
 from utils import get_lidar_dataset
 from utils.tensorize_batch import tensorize_batch
 
@@ -10,6 +11,7 @@ import temp_variables
 import constants
 from utils import map_hasty
 from utils import get_splits
+from utils.tensorize_batch import tensorize_batch
 from models_bank.fuseblock_2d_3d import Three_D_Branch
 
 
@@ -18,7 +20,7 @@ if __name__ == "__main__":
     # Set device
     device = torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
-    print("Device: ", device)
+
     temp_variables.DEVICE = device
     # Empty cuda cache
     torch.cuda.empty_cache()
@@ -29,23 +31,28 @@ if __name__ == "__main__":
 
         # ----- Test lidar projection------
 
-        imgs, anns = next(iter(data_loader_val))
+        imgs, anns, lidar_imgs, lidar_data, calib = next(iter(data_loader_val))
+
+        # move calib to device
+        calib = [cal.to(device) for cal in calib]
+        #move lidar data to device
+        lidar_data = [points.to(device) for points in lidar_data]
+        lidar_data = tensorize_batch(lidar_data, device)
+        
+        # the claibration matrix is the same for every sample
+        calib = calib[0]
+
+        
         model = Three_D_Branch(256)
         model.to(device)
         model.eval()
 
+        img_height, img_width, img_channel = lidar_imgs[0].shape
 
-        lidar_img = anns[0]["lidar_img"]
-
-        (img_height, img_width) = lidar_img.shape[1:]
         features = torch.rand((2, 256, img_height, img_width), device=device)
-
-        lidar = [ann["lidar_data"] for ann in anns]
-        lidar = torch.tensor(lidar, device=device, dtype=torch.float)
-
-        calib = anns[0]["calib"]
-
-        out = model(features, lidar, calib, lidar_img)
+        batch_f, batch_lidar_fov, batch_k_nn_indices = pre_process_points(features, lidar_data, calib)
+        print(batch_f.shape, batch_lidar_fov.shape, batch_k_nn_indices.shape)
+        # model(features, lidar_data, calib, lidar_imgs)
 
     else:
         if config.AUTOMATICALLY_SPLIT_SETS:
@@ -75,6 +82,12 @@ if __name__ == "__main__":
         data_loader_val = get_lidar_dataset.get_dataloaders(
             config.BATCH_SIZE, val_dir, config.LIDAR_DATA, annotation=coco_ann_val, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
 
+        # save data_loader
+
+        data_loader_val_filename = os.path.join(os.path.dirname(
+            os.path.abspath(__file__)), constants.DATA_LOADERS_LOC, constants.DATA_LOADER_VAL_FILENAME)
+
+        torch.save(data_loader_val, data_loader_val_filename)
         # ----- Test lidar projection------
 
         imgs, anns, lidar_imgs, lidar_data, calib = next(iter(data_loader_val))
