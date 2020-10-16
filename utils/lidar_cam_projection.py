@@ -1,5 +1,6 @@
 import cv2
 import mayavi.mlab as mlab
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import temp_variables
@@ -305,7 +306,42 @@ def draw_lidar(pc, color=None, fig=None, bgcolor=(0, 0, 0), pts_scale=1, pts_mod
 
     return fig
 
+# ----------------------------------------------------------
 
+def show_lidar_2d(imgs, lidar_points_fov, pts_2d_fov, proj_lidar2cam):
+        
+        batch_size = lidar_points_fov.shape[0]
+
+        for i in range(batch_size):
+            img = imgs[i]
+            lidar_points = lidar_points_fov[i]
+            
+            pts_2d = pts_2d_fov[i]
+            num_points = pts_2d_fov.shape[1]
+
+            # Homogeneous coords
+            ones = torch.ones(
+                (lidar_points.shape[0], 1), device=temp_variables.DEVICE)
+
+            lidar_points = torch.cat([lidar_points, ones], dim=1)
+
+            # lidar_points_2_cam = 3 x N
+            lidar_points_2_cam = torch.matmul(
+                proj_lidar2cam, lidar_points.transpose(0, 1))
+            # show lidar points on image
+            cmap = plt.cm.get_cmap('hsv', 256)
+            cmap = np.array([cmap(i) for i in range(256)])[:, :3] * 255
+
+            for idx in range(num_points):
+                depth = lidar_points_2_cam[2, idx]
+                color = cmap[int(640.0 / depth), :]
+                cv2.circle(img, (int(torch.round(pts_2d[idx, 0])),
+                                 int(torch.round(pts_2d[idx, 1]))),
+                           2, color=tuple(color), thickness=-1)
+            plt.imshow(img)
+            plt.yticks([])
+            plt.xticks([])
+            plt.show()
 
 def find_k_nearest(k, batch_lidar_fov):
         distances = torch.cdist(batch_lidar_fov, batch_lidar_fov, p=2)
@@ -313,47 +349,62 @@ def find_k_nearest(k, batch_lidar_fov):
         indices = indices[:, :, 1:] # B x N x 3
         return indices
 
-def pre_process_points(features, lidar_points, proj_lidar2cam):
-
-    # B = features.shape[0]
+def pre_process_points(features, lidar_points, proj_lidar2cam , k_number):
+    """
+    features = B x C x H x W
+    lidar_points = B x N x 3
+    """
+    B = features.shape[0]
     C = features.shape[1]
-    # N = lidar_points.shape[1]
-    # height and width
     h, w = features.shape[2:]
 
+    # create mask 
+    mask = torch.zeros((B,h,w), device=temp_variables.DEVICE, dtype=torch.bool)
+
     # project lidar to image
-    pts_2d = project_to_image_torch(
-        lidar_points.transpose(1, 2), proj_lidar2cam)
-    pts_2d = pts_2d.transpose(1, 2)
+    pts_2d = project_to_image_torch( lidar_points.transpose(1, 2), proj_lidar2cam)
+    
+    pts_2d = pts_2d.transpose(1, 2) # B x N x 2
+    
+    pts_2d= torch.round(pts_2d).cuda().long() # convert to int
 
     batch_pts_fov = []
     batch_lidar_fov = []
-    batch_f = []
 
-       # # print(lidar_points[0].shape)
     for idx, points in enumerate(pts_2d):
-        # find points within image range and in front of lidar
+        
+        # find unique indices
+        _, indices = torch.unique(points, dim=0, return_inverse=True)
+        unique_indices = torch.zeros_like(torch.unique(indices))
+
+        # fill with indixes with unique values 
+        current_pos = 0
+        for i, val in enumerate(indices):
+            if val not in indices[:i]:
+                unique_indices[current_pos] = i
+                current_pos += 1
+
+        # filter unique points
+        points = points[unique_indices]
+        new_lidar_points= lidar_points[idx][unique_indices]
+
+        # find values within image fov
         inds = torch.where((points[:, 0] < w - 1) & (points[:, 0] >= 0) &
                             (points[:, 1] < h - 1) & (points[:, 1] >= 0) &
-                            (lidar_points[idx][:, 0] > 0))
-        batch_lidar_fov.append(lidar_points[idx][inds])
+                            (new_lidar_points[:, 0] > 0))
+
+        
+        batch_lidar_fov.append(new_lidar_points[inds])
         batch_pts_fov.append(points[inds])
 
-        pts = points[inds]
-        num_points = points[inds].shape[0]
-        f = torch.zeros((num_points, C))
-        # Get features at projected points
-        for i in range(num_points):
-            x, y = pts[i]
-            x, y = int(torch.round(x)), int(torch.round(y))
-            f[i, :] = features[idx, :, y, x]
-        batch_f.append(f)
+        # create mask
+        mask[idx, points[inds][:,1], points[inds][:,0]] = True
 
+    # tensorize lists
     batch_pts_fov = tensorize_batch(batch_pts_fov, temp_variables.DEVICE)
-    batch_lidar_fov = tensorize_batch(
-        batch_lidar_fov, temp_variables.DEVICE)
-    batch_f = tensorize_batch(batch_f, temp_variables.DEVICE)
+    batch_lidar_fov = tensorize_batch(batch_lidar_fov, temp_variables.DEVICE)
+    
+    # find knn for lidar points within fov
+    batch_k_nn_indices = find_k_nearest(k_number, batch_lidar_fov)
 
-    batch_k_nn_indices = find_k_nearest(3, batch_lidar_fov)
-
-    return batch_f, batch_lidar_fov, batch_k_nn_indices
+    return mask, batch_lidar_fov, batch_pts_fov,  batch_k_nn_indices
