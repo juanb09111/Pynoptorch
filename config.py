@@ -23,6 +23,7 @@ MAX_SIZE = 1333 # Taken from maskrcnn defaults
 DATA = "data/"
 LIDAR_DATA = "lidar_data/"
 SEMANTIC_SEGMENTATION_DATA = "semantic_segmentation_data"
+SEMANTIC_MASKS_FORMAT = ".png"
 MAX_EPOCHS = 50
 
 

@@ -44,10 +44,11 @@ class myOwnDataset(torch.utils.data.Dataset):
         # open the input image
         img = Image.open(os.path.join(self.root, path))
 
+        semantic_mask_path = os.path.splitext(path)[0] + config.SEMANTIC_MASKS_FORMAT
         # create semantic mask
         if self.semantic_masks_folder is not None:
             semantic_mask = Image.open(os.path.join(
-                self.semantic_masks_folder, path + ".png"))
+                self.semantic_masks_folder, semantic_mask_path))
             semantic_mask = np.array(semantic_mask)
         # number of objects in the image
         num_objs = len(coco_annotation)
