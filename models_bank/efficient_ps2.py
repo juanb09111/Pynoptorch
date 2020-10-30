@@ -45,6 +45,7 @@ class EfficientPS2(nn.Module):
 
         if self.training:
             maskrcnn_losses, backbone_feat = self.mask_rcnn(images, anns)
+            # print("maskrcnn_losses", maskrcnn_losses)
 
         else:
             maskrcnn_results, backbone_feat = self.mask_rcnn(images)
@@ -53,6 +54,7 @@ class EfficientPS2(nn.Module):
 
         if semantic:
             semantic_logits = self.semantic_head(P4, P8, P16, P32)
+            # print("semantic_logits.shape", semantic_logits[0, 3, :, :])
 
         if self.training:
 
@@ -60,9 +62,12 @@ class EfficientPS2(nn.Module):
                 semantic_masks = list(
                     map(lambda ann: ann['semantic_mask'], anns))
                 semantic_masks = tensorize_batch(semantic_masks, temp_variables.DEVICE)
+                target_shape = semantic_masks.long().shape 
+                sem_out = F.interpolate(semantic_logits, target_shape[1:])
 
                 losses["semantic_loss"] = F.cross_entropy(
-                    semantic_logits, semantic_masks.long())
+                    sem_out, semantic_masks.long())
+
 
             losses = {**losses, **maskrcnn_losses}
 
