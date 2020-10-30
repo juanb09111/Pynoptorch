@@ -7,7 +7,7 @@ import models
 from utils.tensorize_batch import tensorize_batch
 import torchvision.transforms as transforms
 from utils.show_segmentation import apply_semantic_mask_gpu, apply_panoptic_mask_gpu, apply_instance_masks
-from utils.panoptic_fusion import panoptic_fusion, panoptic_canvas, get_stuff_thing_classes, threshold_instances, sort_by_confidence
+from utils.panoptic_fusion import panoptic_fusion, panoptic_canvas, get_stuff_thing_classes, threshold_instances, sort_by_confidence, filter_by_class
 from utils.get_datasets import get_transform
 from utils.tracker import get_tracked_objects
 
@@ -48,7 +48,7 @@ video_filename = '{}_{}_{}.avi'.format(
 
 video_full_path = os.path.join(os.path.dirname(
     os.path.abspath(__file__)), config.RT_VIDEO_OUTPUT_FOLDER, video_filename)
-
+print("video_full_path", video_full_path)
 # write video
 if config.SAVE_VIDEO:
     out = cv2.VideoWriter(video_full_path, cv2.VideoWriter_fourcc(
@@ -75,7 +75,14 @@ model.eval()
 
 all_categories, stuff_categories, thing_categories = get_stuff_thing_classes()
 
-# Define transformation pipe
+
+exclude_sem_classes = list(map(lambda cat: cat["name"] in config.EXCLUDE_CLASSES, all_categories))
+exclude_sem_classes = np.where(np.array(exclude_sem_classes) == True)[0] + 1
+exclude_sem_classes = list(exclude_sem_classes)
+
+exclude_ins_classes = list(map(lambda cat: cat["name"] in config.EXCLUDE_CLASSES, thing_categories))
+exclude_ins_classes = np.where(np.array(exclude_ins_classes) == True)[0] + 1
+exclude_ins_classes = list(exclude_ins_classes)
 
 
 transforms = get_transform()
@@ -87,14 +94,14 @@ def get_seg_frame(frame, prev_det, confidence=0.5):
     image = transforms(image)
     images = tensorize_batch([image], device)
 
-
     with torch.no_grad():
 
         outputs = model(images)
 
+        outputs = filter_by_class(outputs, exclude_ins_classes=exclude_ins_classes, excluded_sem_classes=exclude_sem_classes)
+
         threshold_preds = threshold_instances(outputs)
         sorted_preds = sort_by_confidence(threshold_preds)
-
 
         if config.OBJECT_TRACKING and result_type != "semantic":
             tracked_obj = None
@@ -104,7 +111,6 @@ def get_seg_frame(frame, prev_det, confidence=0.5):
             else:
                 tracked_obj = get_tracked_objects(
                     prev_det[0]["boxes"], sorted_preds[0]["boxes"], prev_det[0]["labels"], sorted_preds[0]["labels"], iou_threshold)
-
 
             sorted_preds[0]["ids"] = tracked_obj
 
@@ -118,18 +124,19 @@ def get_seg_frame(frame, prev_det, confidence=0.5):
                 sorted_preds[0]["labels"] = sorted_preds[0]["labels"][:len(
                     tracked_obj)]
 
-
         if result_type == "semantic":
 
             logits = outputs[0]["semantic_logits"]
             mask = torch.argmax(logits, dim=0)
-            im = apply_semantic_mask_gpu(images[0], mask, config.NUM_THING_CLASSES + config.NUM_THING_CLASSES)
+            im = apply_semantic_mask_gpu(
+                images[0], mask, config.NUM_THING_CLASSES + config.NUM_THING_CLASSES)
 
             return im.cpu().permute(1, 2, 0).numpy(), None, None
 
         if result_type == "instance":
-            
-            im = apply_instance_masks(images[0], sorted_preds[0]['masks'], 0.5, ids=sorted_preds[0]["ids"])
+
+            im = apply_instance_masks(
+                images[0], sorted_preds[0]['masks'], 0.5, ids=sorted_preds[0]["ids"])
 
             return im.cpu().permute(1, 2, 0).numpy(), None, sorted_preds
 
@@ -154,17 +161,19 @@ def get_seg_frame(frame, prev_det, confidence=0.5):
             return frame, None, sorted_preds
 
 
+ret, frame = cap.read()
+
 # Video loop
-while(True):
+while(frame is not None):
 
     ret, frame = cap.read()
+
     start = time.time_ns()
-    
+
     im, summary_batch, new_det = get_seg_frame(frame, prev_det, confidence=0.5)
     prev_det = new_det
     end = time.time_ns()
     fps = round(1/((end-start)/1e9), 1)
-
 
     font = cv2.FONT_HERSHEY_SIMPLEX
     bottomLeftCornerOfText = (30, 30)
@@ -193,6 +202,7 @@ while(True):
     cv2.imshow('frame', im)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
+
 
 cap.release()
 if config.SAVE_VIDEO:
