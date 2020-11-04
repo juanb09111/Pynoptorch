@@ -16,6 +16,7 @@ NUM_FRAMES = 5 # Number of frames before recycling the ids
 
 ORIGINAL_INPUT_SIZE_HW = (1200, 1920) 
 
+RESIZE = 0.5
 MIN_SIZE = 800 # Taken from maskrcnn defaults  
 MAX_SIZE = 1333 # Taken from maskrcnn defaults 
 

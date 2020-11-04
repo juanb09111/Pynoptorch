@@ -12,8 +12,31 @@ import constants
 from utils import map_hasty
 from utils import get_splits
 from utils.tensorize_batch import tensorize_batch
-from models_bank.fuseblock_2d_3d import Three_D_Branch
+from models_bank.fuseblock_2d_3d import FuseBlock, FuseNet
 import matplotlib.pyplot as plt
+
+def pre_process_points(lidar_fov, imPts):
+
+    batch_imPts = []
+    batch_lidar_fov = []
+
+    for idx, points in enumerate(imPts):
+        _, indices = torch.unique(points, dim=0, return_inverse=True)
+        unique_indices = torch.zeros_like(torch.unique(indices))
+
+        current_pos = 0
+        for i, val in enumerate(indices):
+            if val not in indices[:i]:
+                unique_indices[current_pos] = i
+                current_pos += 1
+    
+        points = points[unique_indices]
+        new_lidar_fov = lidar_fov[idx][unique_indices]
+
+        batch_lidar_fov.append(new_lidar_fov)
+        batch_imPts.append(points)
+
+    return batch_lidar_fov, batch_imPts
 
 if __name__ == "__main__":
 
@@ -25,7 +48,7 @@ if __name__ == "__main__":
     # Empty cuda cache
     torch.cuda.empty_cache()
 
-
+    print(torch.cuda.memory_allocated(device=device)/1e9)
     if config.USE_PREEXISTING_DATA_LOADERS:
         data_loader_val = torch.load(config.DATA_LOADER_VAL_FILENAME)
 
@@ -33,10 +56,13 @@ if __name__ == "__main__":
 
         imgs, anns, lidar_imgs, lidar_fov, imPts = next(iter(data_loader_val))
         
+        # remove points that are equal
+        lidar_fov, imPts = pre_process_points(lidar_fov, imPts)
+
         lidar_data_fov = tensorize_batch(lidar_fov, device)
         imPts = tensorize_batch(imPts, device)
         imPts= torch.round(imPts).long()
-        # B = len(imgs)
+        B = len(imgs)
 
         # # move calib to device
         # calib = [cal.to(device) for cal in calib]
@@ -48,45 +74,57 @@ if __name__ == "__main__":
         # calib = calib[0]
 
         
-        # k_number = 3
-        h, w, img_channel = lidar_imgs[0].shape
-
-        features = torch.rand((2, 256, h, w), device=device)
-        B, C, _, _ = features.shape
+        img_channel, h, w = lidar_imgs[0].shape
+        # features = torch.rand((B, 256, h, w), device=device)
+        # _, C, _, _ = features.shape
         
         mask = torch.zeros((B,h,w), device=temp_variables.DEVICE, dtype=torch.bool)
-        for i in range(B):
-            mask[i, imPts[i, :, 1], imPts[i, :, 0]] = True
+        sparse_depth = torch.zeros((B,1,h,w), device=temp_variables.DEVICE)
         
-        print("mask shape", mask.shape)
+        # print("mask shape", mask.shape)
 
 
+        # k_number = 3
         k_number = 3
         batch_k_nn_indices = find_k_nearest(k_number, lidar_data_fov)
-        print(batch_k_nn_indices.shape)
+        # print(batch_k_nn_indices.shape)
 
         # print(lidar_data)
         # mask, batch_lidar_fov, batch_pts_fov, batch_k_nn_indices = pre_process_points(features, lidar_data, calib, k_number)
 
+       
+
+        # TODO: guarantee this number is the same throughout the samples
+        n_number = lidar_data_fov.shape[1] # number of samples per batch
+        
+        for i in range(B):
+            mask[i, imPts[i, :, 1], imPts[i, :, 0]] = True
+
+            sparse_depth[i, 0, imPts[i, :, 1], imPts[i, :, 0]] = lidar_data_fov[i, :, 2]
+
         # plt.imshow(mask[0].cpu().numpy())
         # plt.show()
-        n_number = lidar_data_fov.shape[1] # number of samples per batch
-        # print("n_number", n_number)
-        
-        batched_feat = features.permute(0, 2, 3, 1)[mask].view(B, -1, C)
-        # print("n_number", n_number)
-        n_number, n_feat  = batched_feat.shape[1:]
-        show_lidar_2_img(lidar_imgs, lidar_data_fov, imPts)
+        # tensor lidar imgs        
+        lidar_imgs = tensorize_batch(lidar_imgs, device=device)
 
+        # batched_feat = features.permute(0, 2, 3, 1)[mask].view(B, -1, C)
+       
+        # n_number, n_feat  = batched_feat.shape[1:]
+        # show_lidar_2_img(lidar_imgs, lidar_data_fov, imPts)
+        # print(lidar_imgs.shape, sparse_depth.shape, mask.shape, lidar_data_fov.shape, batch_k_nn_indices.shape)
         torch.cuda.empty_cache()
-        
-        model = Three_D_Branch(C, k_number, n_number)
+        print(torch.cuda.memory_allocated(device=device)/1e9)
+        model = FuseNet(k_number, n_number)
+        # # model = FuseBlock(C, k_number, n_number)
+        # # model = Two_D_Branch(C)
         model.to(device)
         model.eval()
 
-        print(torch.cuda.memory_allocated(device=device)/1e9)
-        print(mask.shape, features.shape, lidar_data_fov.shape, batch_k_nn_indices.shape)
-        model(mask, features, lidar_data_fov, batch_k_nn_indices)
+        # # model(mask, features, lidar_data_fov, batch_k_nn_indices)
+        out  = model(lidar_imgs, sparse_depth, mask, lidar_data_fov, batch_k_nn_indices)
+
+        print(out.shape)
+        # out = model(features)
 
     else:
         if config.AUTOMATICALLY_SPLIT_SETS:

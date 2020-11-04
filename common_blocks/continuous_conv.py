@@ -40,26 +40,12 @@ class ContinuousConvolution(nn.Module):
         B, N, C = x.size()
         K = indices.size(2)
 
-        # print(x.shape, points.shape, indices.shape, B, N, C, K)
+        
 
-        # y1 = torch.zeros((B,N,K,3), device=temp_variables.DEVICE) # B x N x K x 3
-
-        # y2 = torch.zeros((B,N,K,C), device=temp_variables.DEVICE) # B x N x K x C
-
-        # for i in range(B):
-        #     idxs = indices[i] # N x K
-        #     pts = points[i, idxs] # N x K x 3
-        #     y1[i, :, :, :] = pts
-
-        #     feats = x[i, idxs] # N x 3 x C
-        #     y2[i, :, :, :] = feats
-
-        y1 = torch.cat([points[i, indices[i]] for i in range(B)], dim=0).view(B,N,K,3)  # B x N x K x 3
-        # print("forward3", torch.cuda.memory_allocated(device=temp_variables.DEVICE)/1e9)
-        # print(y1.shape, points.shape, points[:, :, None, :].shape)
-        # print("y3", y3.shape)
+        y1 = torch.cat([points[i, indices[i]] for i in range(B)], dim=0)
+        y1 = y1.view(B,N,K,3)  # B x N x K x 3
         y1 = points[:, :, None, :] - y1  # B x N x K x 3
-        y1 = y1.view(B, N, K * 3)  # B x N x K*3
+        y1 = y1.view(B, N, K * 3)   # B x N x K*3 
 
         # output mlp: B x N x K*C
         y1 = self.mlp(y1).view(B, N, K, C)  # reshape after mlp B x N x K x C
