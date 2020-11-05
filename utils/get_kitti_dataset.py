@@ -12,17 +12,10 @@ from utils.lidar_cam_projection import *
 import glob
 # %%
 
-# listOfimgs = list()
+
 folder_name = os.path.join(os.path.dirname(
-            os.path.abspath(__file__)), "../data_kitti/kitti_depth_completion/imgs/")
+            os.path.abspath(__file__)), "../data_kitti/kitti_depth_completion/imgs/2011_09_26/val/")
         
-# print(os.walk(folder_name))
-# for (dirpath, dirnames, filenames) in os.walk(folder_name):
-#     print("here", dirpath, dirnames, filenames)
-#     listOfimgs += [os.path.join(dirpath, file) for file in filenames]
-
-# print(listOfimgs)
-
 
 def getListOfImgs(dirName):
     # create a list of file and sub directories 
@@ -52,7 +45,6 @@ def getListOfImgs(dirName):
 
 imgs, sync_folders = getListOfImgs(folder_name)
 
-print(len(imgs))
 
 def getListOfDepthData(dirName):
     # create a list of file and sub directories 
@@ -75,6 +67,7 @@ def get_depth_data(depth_velodyne_folder, depth_annotated_folder, sync_folders):
 
     depth_velo_list = list()
     depth_anotated_list = list()
+    source_imgs = list()
 
     data_lists = list((depth_velo_list, depth_anotated_list))
 
@@ -91,20 +84,33 @@ def get_depth_data(depth_velodyne_folder, depth_annotated_folder, sync_folders):
         for folder in sync_folders:
             if folder in directories:
                 data_lists[idx] = data_lists[idx] + getListOfDepthData(data_folder + folder)
+                
+                if idx == 0:
+                    matching_imgs = [s for s in imgs if folder in s]
+
+                    depth_img_filenames = [s for s in data_lists[idx] if folder in s]
     
-    return data_lists
+                    depth_img_filenames = list(map(lambda file_path: file_path.split("/")[-1], depth_img_filenames))
+
+                    matched_imgs = [s for s in matching_imgs if s.split("/")[-1] in depth_img_filenames]
+
+                    source_imgs = source_imgs + matched_imgs
+    
+    return data_lists, source_imgs
 
 
 data_depth_velodyne = os.path.join(os.path.dirname(
-            os.path.abspath(__file__)), "../data_kitti/kitti_depth_completion/data_depth_velodyne/train/")
+            os.path.abspath(__file__)), "../data_kitti/kitti_depth_completion/data_depth_velodyne/val/")
 
 data_depth_annotated = os.path.join(os.path.dirname(
-            os.path.abspath(__file__)), "../data_kitti/kitti_depth_completion/data_depth_annotated/train/")
+            os.path.abspath(__file__)), "../data_kitti/kitti_depth_completion/data_depth_annotated/val/")
 
-data_velo, data_ann = get_depth_data(data_depth_velodyne, data_depth_annotated, sync_folders)
+(data_velo, data_ann), source_imgs = get_depth_data(data_depth_velodyne, data_depth_annotated, sync_folders)
 
-print(len(data_velo), len(data_ann))
-
+print(len(data_velo), len(data_ann), len(source_imgs))
+print(data_velo[0:10])
+print(data_ann[0:10])
+print(source_imgs[0:10])
 # data_depth_velodyne = os.path.join(os.path.dirname(
 #             os.path.abspath(__file__)), "../data_kitti/kitti_depth_completion/data_depth_velodyne/train/")
 
