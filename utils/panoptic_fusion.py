@@ -315,7 +315,6 @@ def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories, t
 
 
 def map_stuff(x, classes_arr):
-
     res = torch.zeros_like(x)
     default_value = torch.tensor(0).to(temp_variables.DEVICE)
 
@@ -327,19 +326,26 @@ def map_stuff(x, classes_arr):
     return res
 
 
-def map_things(x, classes_arr):
+def map_things(x, classes_arr, preds, thing_categories):
     res = torch.zeros_like(x)
     default_value = torch.tensor(0).to(temp_variables.DEVICE)
 
-    for c in classes_arr:
-        y = torch.where(x != c, x, default_value)
+    labels = preds["labels"]
+    
+    label_ids = list(map(lambda label: thing_categories[label]["id"], labels))
+    label_ids = torch.tensor(label_ids, device=temp_variables.DEVICE)
+    stuff_layers_len = len(classes_arr)
 
+    for idx in range(stuff_layers_len, stuff_layers_len + labels.shape[0]):
+
+        label_idx = idx - stuff_layers_len
+        y = torch.where(x == idx, label_ids[label_idx], default_value)
         res = res + y
 
     return res
 
 
-def panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories):
+def panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories, preds):
 
     batch_size = len(inter_pred_batch)
 
@@ -382,7 +388,7 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_cate
 
             stuff_canvas_gpu = map_stuff(sem_pred, stuff_cat_idx)
 
-            things_canvas_gpu = map_things(inter_pred, stuff_in_inter_pred_idx)
+            things_canvas_gpu = map_things(inter_pred, stuff_in_inter_pred_idx, preds[i], thing_categories)
             panoptic_canvas_gpu = torch.where(
                 things_canvas_gpu == default_value, stuff_canvas_gpu, things_canvas_gpu)
             
@@ -400,7 +406,7 @@ def get_panoptic_results(images, preds, all_categories, stuff_categories, thing_
         preds, all_categories, stuff_categories, thing_categories)
 
     panoptic_canvas_batch = panoptic_canvas(
-        inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories)
+        inter_pred_batch, sem_pred_batch, all_categories, stuff_categories, thing_categories, preds)
 
 
     # TODO: panoptic_canvas_batch could be None for one of the values in the batch

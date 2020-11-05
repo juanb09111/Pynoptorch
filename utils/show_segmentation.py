@@ -96,6 +96,34 @@ def apply_panoptic_mask_gpu(image, mask):
                                       image[c, :, :])
     return image
 
+def apply_panoptic_mask_gpu_2(image, mask):
+    
+    unique_values = torch.unique(mask)
+    num_classes = unique_values.shape
+
+    colors = get_colors_palete(config.NUM_THING_CLASSES + config.NUM_THING_CLASSES)
+
+    num_stuff_classes = config.NUM_STUFF_CLASSES
+    max_val = mask.max()
+    colors = get_colors_palete(config.NUM_THING_CLASSES + config.NUM_THING_CLASSES)
+
+    for i in range(1, max_val + 1):
+        for c in range(3):
+
+            if i <= num_stuff_classes:
+                color = colors[i]
+                alpha = 0.45
+
+            else:
+                alpha = 0.45
+                color = randRGB(i)
+            
+            image[c, :, :] = torch.where(mask == i,
+                                      image[c, :, :] *
+                                      (1 - alpha) + alpha * color[c],
+                                      image[c, :, :])
+    return image
+
 
 def save_fig(im, folder, file_name):
 
