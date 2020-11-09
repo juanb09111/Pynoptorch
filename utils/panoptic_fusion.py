@@ -5,7 +5,7 @@ import json
 import config
 import temp_variables
 import matplotlib.pyplot as plt
-from .show_segmentation import apply_panoptic_mask_gpu
+from .show_segmentation import apply_panoptic_mask_gpu, apply_panoptic_mask_gpu_2
 import time
 
 
@@ -314,14 +314,17 @@ def panoptic_fusion(preds, all_categories, stuff_categories, thing_categories, t
     return inter_pred_batch, sem_pred_batch, summary_batch
 
 
-def map_stuff(x, classes_arr):
+def map_stuff(x, classes_arr, all_categories):
     res = torch.zeros_like(x)
     default_value = torch.tensor(0).to(temp_variables.DEVICE)
 
     for c in classes_arr:
-        y = torch.where(x == c, x, default_value)
+        if c > 0:
+            idx = torch.tensor((c-1), device=temp_variables.DEVICE)
+            cat_id = torch.tensor((all_categories[idx]["id"]), device=temp_variables.DEVICE)
+            y = torch.where(x == c, cat_id, default_value)
 
-        res = res + y
+            res = res + y
 
     return res
 
@@ -330,9 +333,10 @@ def map_things(x, classes_arr, preds, thing_categories):
     res = torch.zeros_like(x)
     default_value = torch.tensor(0).to(temp_variables.DEVICE)
 
+    num_stuff_classes = config.NUM_STUFF_CLASSES
     labels = preds["labels"]
     
-    label_ids = list(map(lambda label: thing_categories[label]["id"], labels))
+    label_ids = list(map(lambda label: thing_categories[label - num_stuff_classes]["id"], labels))
     label_ids = torch.tensor(label_ids, device=temp_variables.DEVICE)
     stuff_layers_len = len(classes_arr)
 
@@ -386,7 +390,7 @@ def panoptic_canvas(inter_pred_batch, sem_pred_batch, all_categories, stuff_cate
         else:
             # canvases in GPU
 
-            stuff_canvas_gpu = map_stuff(sem_pred, stuff_cat_idx)
+            stuff_canvas_gpu = map_stuff(sem_pred, stuff_cat_idx, all_categories)
 
             things_canvas_gpu = map_things(inter_pred, stuff_in_inter_pred_idx, preds[i], thing_categories)
             panoptic_canvas_gpu = torch.where(
@@ -418,29 +422,30 @@ def get_panoptic_results(images, preds, all_categories, stuff_categories, thing_
         summary_arr = summary_batch[i]
         canvas = panoptic_canvas_batch[i]
         img = images[i]
-        im = apply_panoptic_mask_gpu(img, canvas)
-        # Move to cpu
-        im = im.cpu().permute(1, 2, 0).numpy()
+        # im = apply_panoptic_mask_gpu(img, canvas)
+        apply_panoptic_mask_gpu_2(img, canvas)
+        # # Move to cpu
+        # im = im.cpu().permute(1, 2, 0).numpy()
 
-        file_name_basename = os.path.basename(filenames[i])
-        file_name = os.path.splitext(file_name_basename)[0]
+        # file_name_basename = os.path.basename(filenames[i])
+        # file_name = os.path.splitext(file_name_basename)[0]
 
-        dppi = 96
-        fig, ax = plt.subplots(1, 1, figsize=(
-            width/dppi, height/dppi), dpi=dppi)
-        plt.subplots_adjust(top=1, bottom=0, right=1, left=0,
-                            hspace=0, wspace=0)
-        plt.margins(0, 0)
-        plt.gca().xaxis.set_major_locator(plt.NullLocator())
-        plt.gca().yaxis.set_major_locator(plt.NullLocator())
-        c = 1
-        for obj in summary_arr:
-            ax.text(20, 30*c, '{}: {}'.format(obj["name"], obj["count_obj"]), style='italic',
-                    bbox={'facecolor': 'blue', 'alpha': 0.5, 'pad': 5})
-            c = c + 1
+        # dppi = 96
+        # fig, ax = plt.subplots(1, 1, figsize=(
+        #     width/dppi, height/dppi), dpi=dppi)
+        # plt.subplots_adjust(top=1, bottom=0, right=1, left=0,
+        #                     hspace=0, wspace=0)
+        # plt.margins(0, 0)
+        # plt.gca().xaxis.set_major_locator(plt.NullLocator())
+        # plt.gca().yaxis.set_major_locator(plt.NullLocator())
+        # c = 1
+        # for obj in summary_arr:
+        #     ax.text(20, 30*c, '{}: {}'.format(obj["name"], obj["count_obj"]), style='italic',
+        #             bbox={'facecolor': 'blue', 'alpha': 0.5, 'pad': 5})
+        #     c = c + 1
 
-        ax.imshow(im,  interpolation='nearest', aspect='auto')
-        plt.axis('off')
-        fig.savefig(os.path.join(
-            my_path, '../{}/{}.png'.format(folder, file_name)))
-        plt.close(fig)
+        # ax.imshow(im,  interpolation='nearest', aspect='auto')
+        # plt.axis('off')
+        # fig.savefig(os.path.join(
+        #     my_path, '../{}/{}.png'.format(folder, file_name)))
+        # plt.close(fig)
