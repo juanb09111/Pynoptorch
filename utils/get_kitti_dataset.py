@@ -8,18 +8,16 @@ import torchvision.transforms as transforms
 from PIL import Image
 import numpy as np
 import config
-from utils.lidar_cam_projection import *
+from utils.lidar_cam_projection import read_calib_file, load_velo_scan, full_project_velo_to_cam2, project_to_image
 import glob
+import cv2
+import matplotlib.pyplot as plt
 # %%
 
 
-folder_name = os.path.join(os.path.dirname(
-            os.path.abspath(__file__)), "../data_kitti/kitti_depth_completion/imgs/2011_09_26/val/")
-        
-
 def getListOfImgs(dirName):
-    # create a list of file and sub directories 
-    # names in the given directory 
+    # create a list of file and sub directories
+    # names in the given directory
     listOfFile = os.listdir(dirName)
     allFiles = list()
     sync_folders = list()
@@ -27,11 +25,11 @@ def getListOfImgs(dirName):
     for entry in listOfFile:
         # Create full path
         fullPath = os.path.join(dirName, entry)
-        # If entry is a directory then get the list of files in this directory 
+        # If entry is a directory then get the list of files in this directory
         if os.path.isdir(fullPath):
 
             current_path = fullPath.split("/")[-1]
-            
+
             if fullPath.split("/")[-1].find("sync") != -1:
                 sync_folders.append(current_path)
 
@@ -41,336 +39,329 @@ def getListOfImgs(dirName):
         elif fullPath.find("image_02") != -1 and fullPath.find(".png") != -1:
             allFiles.append(fullPath)
 
-    return allFiles, sync_folders       
-
-imgs, sync_folders = getListOfImgs(folder_name)
+    return allFiles, sync_folders
 
 
 def getListOfDepthData(dirName):
-    # create a list of file and sub directories 
-    # names in the given directory 
+    # create a list of file and sub directories
+    # names in the given directory
     listOfFile = os.listdir(dirName)
     allFiles = list()
     # Iterate over all the entries
     for entry in listOfFile:
         # Create full path
         fullPath = os.path.join(dirName, entry)
-        # If entry is a directory then get the list of files in this directory 
+        # If entry is a directory then get the list of files in this directory
         if os.path.isdir(fullPath):
             allFiles = allFiles + getListOfDepthData(fullPath)
         elif fullPath.find("image_02") != -1 and fullPath.find(".png") != -1:
             allFiles.append(fullPath)
 
-    return allFiles       
+    return allFiles
 
-def get_depth_data(depth_velodyne_folder, depth_annotated_folder, sync_folders):
+
+def get_lidar_filenames(root_folder, sync_folder, matched_imgs):
+
+    full_path = os.path.join(root_folder, sync_folder,
+                             "velodyne_points", "data")
+
+    file_paths = glob.glob(full_path+"/*.bin")
+
+    matched_imgs_name = [s.split("/")[-1].split(".")[0] for s in matched_imgs]
+
+    file_paths = [s for s in file_paths if s.split(
+        "/")[-1].split(".")[0] in matched_imgs_name]
+
+    return file_paths
+
+
+def get_depth_data(imgs_root, depth_velodyne_folder, depth_annotated_folder, sync_folders, imgs_list):
 
     depth_velo_list = list()
     depth_anotated_list = list()
     source_imgs = list()
+    lidar_file_list = list()
 
+    # list of lists
     data_lists = list((depth_velo_list, depth_anotated_list))
 
+    # root folders for sparse lidar and ground truth
     data_depth_velodyne = os.path.join(os.path.dirname(
-            os.path.abspath(__file__)), depth_velodyne_folder)
-            
+        os.path.abspath(__file__)), depth_velodyne_folder)
+
     data_depth_annotated = os.path.join(os.path.dirname(
-                os.path.abspath(__file__)), depth_annotated_folder)
+        os.path.abspath(__file__)), depth_annotated_folder)
 
+    # iterate over root folders
     for idx, data_folder in enumerate((data_depth_velodyne, data_depth_annotated)):
+
+        # Get sync folders from sparse lidar root folder and annotations folder
         directories = glob.glob(data_folder+"*/")
-        directories = list(map(lambda folder_path: folder_path.split("/")[-2], directories))
+        directories = list(
+            map(lambda folder_path: folder_path.split("/")[-2], directories))
 
+        # loop over sync folder from imgs folder
         for folder in sync_folders:
+            # if the current folder is in directories
             if folder in directories:
-                data_lists[idx] = data_lists[idx] + getListOfDepthData(data_folder + folder)
-                
+                # add png files under data_folder + folder
+                data_lists[idx] = data_lists[idx] + \
+                    getListOfDepthData(data_folder + folder)
+
+                # do it once for the current folder
                 if idx == 0:
-                    matching_imgs = [s for s in imgs if folder in s]
+                    # Get images that are under the same folder in imgs
+                    matching_imgs = [s for s in imgs_list if folder in s]
+                    # get depth filenames that are under the current folder
+                    depth_img_filenames = [
+                        s for s in data_lists[idx] if folder in s]
+                    # get the imgs names without basename
+                    depth_img_filenames = list(
+                        map(lambda file_path: file_path.split("/")[-1], depth_img_filenames))
 
-                    depth_img_filenames = [s for s in data_lists[idx] if folder in s]
-    
-                    depth_img_filenames = list(map(lambda file_path: file_path.split("/")[-1], depth_img_filenames))
+                    # Filter images so that they are in both imgs folder and lidar data folder
+                    matched_imgs = [s for s in matching_imgs if s.split(
+                        "/")[-1] in depth_img_filenames]
 
-                    matched_imgs = [s for s in matching_imgs if s.split("/")[-1] in depth_img_filenames]
+                    # map matched imgs
+                    # print(folder)
+                    matched_imgs_filenames = list(
+                        map(lambda file_path: file_path.split("/")[-1].split(".")[0], matched_imgs))
+                    # print(matched_imgs_filenames)
+                    matched_lidar_files = get_lidar_filenames(
+                        imgs_root, folder, matched_imgs_filenames)
 
+                    lidar_file_list = lidar_file_list + matched_lidar_files
                     source_imgs = source_imgs + matched_imgs
-    
-    return data_lists, source_imgs
+
+    return data_lists, source_imgs, lidar_file_list
 
 
-data_depth_velodyne = os.path.join(os.path.dirname(
-            os.path.abspath(__file__)), "../data_kitti/kitti_depth_completion/data_depth_velodyne/val/")
+def get_file_lists(imgs_root, data_depth_velodyne_root, data_depth_annotated_root):
 
-data_depth_annotated = os.path.join(os.path.dirname(
-            os.path.abspath(__file__)), "../data_kitti/kitti_depth_completion/data_depth_annotated/val/")
+    imgs, sync_folders = getListOfImgs(imgs_root)
+    (data_velo, data_ann), source_imgs, lidar_file_list = get_depth_data(
+        imgs_root, data_depth_velodyne_root, data_depth_annotated_root, sync_folders, imgs)
 
-(data_velo, data_ann), source_imgs = get_depth_data(data_depth_velodyne, data_depth_annotated, sync_folders)
-
-print(len(data_velo), len(data_ann), len(source_imgs))
-print(data_velo[0:10])
-print(data_ann[0:10])
-print(source_imgs[0:10])
-# data_depth_velodyne = os.path.join(os.path.dirname(
-#             os.path.abspath(__file__)), "../data_kitti/kitti_depth_completion/data_depth_velodyne/train/")
-
-# # data depth sparse
-# depth_velo_list = list()
-# directories = glob.glob(data_depth_velodyne+"*/")
-# directories = list(map(lambda folder_path: folder_path.split("/")[-2], directories))
+    return np.sort(source_imgs), np.sort(data_velo), np.sort(data_ann), np.sort(lidar_file_list)
 
 
-# for folder in sync_folders:
-#     if folder in directories:
-#         depth_velo_list = depth_velo_list + getListOfDepthData(data_depth_velodyne + folder)
-# print(len(depth_velo_list))
-# ## annotated, depth map
-# data_depth_annotated = os.path.join(os.path.dirname(
-#             os.path.abspath(__file__)), "../data_kitti/kitti_depth_completion/data_depth_annotated/train/")
+class kittiDataset(torch.utils.data.Dataset):
+    def __init__(self, imgs_root, data_depth_velodyne_root, data_depth_annotated_root, calib_velo2cam, calib_cam2cam, transforms=None):
+
+        self.imgs_root = imgs_root
+        self.data_depth_velodyne_root = data_depth_velodyne_root
+        self.data_depth_annotated_root = data_depth_annotated_root
+        self.calib_velo2cam = calib_velo2cam
+        self.calib_cam2cam = calib_cam2cam
+
+        source_imgs, data_velo_files, data_ann_files, lidar_files = get_file_lists(
+            imgs_root, data_depth_velodyne_root, data_depth_annotated_root)
+
+        self.source_imgs = source_imgs
+        self.data_velo_files = data_velo_files
+        self.data_ann_files = data_ann_files
+        self.lidar_files = lidar_files
+        self.transforms = transforms
+
+    def visualize_projection(self, img_filename, imgfov_pc_pixel, imgfov_pc_cam2):
+
+        rgb = cv2.cvtColor(cv2.imread(img_filename), cv2.COLOR_BGR2RGB)
+        cmap = plt.cm.get_cmap('hsv', 256)
+        cmap = np.array([cmap(i) for i in range(256)])[:, :3] * 255
+
+        for i in range(imgfov_pc_pixel.shape[1]):
+            depth = imgfov_pc_cam2[2, i]
+            color = cmap[int(640.0 / depth), :]
+            cv2.circle(rgb, (int(np.round(imgfov_pc_pixel[0, i])),
+                             int(np.round(imgfov_pc_pixel[1, i]))),
+                       2, color=tuple(color), thickness=-1)
+        plt.imshow(rgb)
+        plt.yticks([])
+        plt.xticks([])
+        plt.show()
+
+    def pre_process_points(self, imPts, lidar_fov):
+
+        _, indices = torch.unique(imPts, dim=0, return_inverse=True)
+        unique_indices = torch.zeros_like(torch.unique(indices))
+
+        current_pos = 0
+        for i, val in enumerate(indices):
+            if val not in indices[:i]:
+                unique_indices[current_pos] = i
+                current_pos += 1
+
+        imPts = imPts[unique_indices]
+        lidar_fov = lidar_fov[unique_indices]
+
+        return imPts, lidar_fov
+
+    def __getitem__(self, index):
+
+        img_filename = self.source_imgs[index]
+        lidar_filename = self.lidar_files[index]
+        depth_gt = self.data_ann_files[index]
+
+        calib_velo2cam = read_calib_file(self.calib_velo2cam)
+        calib_cam2cam = read_calib_file(self.calib_cam2cam)
+
+        img = Image.open(img_filename)
+        gt_img = Image.open(depth_gt)
+
+        pc_velo = load_velo_scan(lidar_filename)[:, :3]
+
+        # img width and height
+        (img_width, img_height) = (img.width, img.height)
+
+        # projection matrix (project from velo2cam2)
+        proj_velo2cam2 = full_project_velo_to_cam2(
+            calib_velo2cam, calib_cam2cam)
+
+        # apply projection
+        pts_2d = project_to_image(pc_velo.transpose(), proj_velo2cam2)
+
+        # Filter lidar points to be within image FOV
+        inds = np.where((pts_2d[0, :] < img_width) & (pts_2d[0, :] >= 0) &
+                        (pts_2d[1, :] < img_height) & (pts_2d[1, :] >= 0) &
+                        (pc_velo[:, 0] > 0)
+                        )[0]
+
+        # Filter out pixels points
+        imgfov_pc_pixel = pts_2d[:, inds]
+
+        # Retrieve depth from lidar
+        imgfov_pc_velo = pc_velo[inds, :]
+        imgfov_pc_velo = np.hstack(
+            (imgfov_pc_velo, np.ones((imgfov_pc_velo.shape[0], 1))))
+        imgfov_pc_cam2 = proj_velo2cam2 @ imgfov_pc_velo.transpose()
+
+        # visualize
+        # self.visualize_projection(
+        #     img_filename, imgfov_pc_pixel, imgfov_pc_cam2)
+
+        # to return
+        imPts = torch.tensor(
+            imgfov_pc_pixel, dtype=torch.float).permute(1, 0)  # N x 2
+        imPts = torch.floor(imPts*config.RESIZE)  # N x 2 resized
+
+        lidar_fov = torch.tensor(
+            imgfov_pc_cam2, dtype=torch.float).permute(1, 0)  # N x 3
+
+        # remove duplicate
+        imPts, lidar_fov = self.pre_process_points(imPts, lidar_fov)
+
+        if self.transforms is not None:
+            img = self.transforms(resize=True)(img)
+            gt_img = self.transforms(resize=False)(gt_img)
+        print("here")
+        return img, imPts, lidar_fov, gt_img
+
+    def __len__(self):
+        return len(self.source_imgs)
 
 
-# depth_anotated_list = list()
-# directories = glob.glob(data_depth_annotated+"*/")
-# directories = list(map(lambda folder_path: folder_path.split("/")[-2], directories))
+def get_transform(resize=True):
+    new_size = tuple(np.ceil(x*config.RESIZE)
+                     for x in config.ORIGINAL_INPUT_SIZE_HW)
+    new_size = tuple(int(x) for x in new_size)
+    custom_transforms = []
+    if resize:
+        custom_transforms.append(transforms.Resize(new_size))
+    custom_transforms.append(transforms.ToTensor())
+
+    return transforms.Compose(custom_transforms)
 
 
-# for folder in sync_folders:
-#     if folder in directories:
-#         depth_anotated_list = depth_anotated_list + getListOfDepthData(data_depth_annotated + folder)
-# print(len(depth_anotated_list))
+# kitti_dataset = kittiDataset(
+#     imgs_root, data_depth_velodyne_root, data_depth_annotated_root, calib_velo2cam, calib_cam2cam, transforms=get_transform)
 
-# depth_velo_list = getListOfDepthVelo(folder_name + "2011_09_26_drive_0001_sync")
+# img, imPts, lidar_fov, gt_img = kitti_dataset.__getitem__(200)
 
-# print(len(depth_velo_list))
-# class myOwnDataset(torch.utils.data.Dataset):
-#     def __init__(self, root_imgs, root_lidar_proj, root_gt, transforms=None,):
-#         # self.root = root
-#         # self.lidar_root = lidar_root
-#         # self.transforms = transforms
-#         # self.coco = COCO(annotation)
-#         # self.ids = list(sorted(self.coco.imgs.keys()))
-#         # self.semantic_masks_folder = semantic_masks_folder
-#         # catIds = self.coco.getCatIds()
-#         # categories = self.coco.loadCats(catIds)
-#         # self.categories = list(map(lambda x: x['name'], categories))
+# print(img.shape, imPts.shape, lidar_fov.shape, gt_img.shape)
 
-#         # self.bg_categories_ids = self.coco.getCatIds(supNms="background")
-#         # bg_categories = self.coco.loadCats(self.bg_categories_ids)
-#         # self.bg_categories = list(map(lambda x: x['name'], bg_categories))
+def get_datasets(imgs_root, data_depth_velodyne_root, data_depth_annotated_root, calib_velo2cam, calib_cam2cam, split=False, val_size=0.20):
 
-#         # self.obj_categories_ids = self.coco.getCatIds(supNms="object")
-#         # obj_categories = self.coco.loadCats(self.obj_categories_ids)
-#         # self.obj_categories = list(map(lambda x: x['name'], obj_categories))
+    kitti_dataset = kittiDataset(imgs_root=imgs_root, data_depth_velodyne_root=data_depth_velodyne_root,
+                                 data_depth_annotated_root=data_depth_annotated_root, calib_velo2cam=calib_velo2cam, calib_cam2cam=calib_cam2cam, transforms=get_transform)
+    if split:
+        if val_size >= 1:
+            raise AssertionError(
+                "val_size must be a value within the range of (0,1)")
 
-#     def __getitem__(self, index):
-#         # Own coco file
-#         coco = self.coco
-#         # Image ID
-#         img_id = self.ids[index]
-#         # List: get object annotations ids from coco
-#         obj_ann_ids = coco.getAnnIds(
-#             imgIds=img_id, catIds=self.obj_categories_ids)
-#         # Dictionary: target coco_annotation file for an image containing only object classes
-#         coco_annotation = coco.loadAnns(obj_ann_ids)
-#         # path for input image
-#         path = coco.loadImgs(img_id)[0]['file_name']
-#         # open the input image
-#         img = Image.open(os.path.join(self.root, path))
+        len_val = math.ceil(len(kitti_dataset)*val_size)
+        len_train = len(kitti_dataset) - len_val
 
-#         # create semantic mask
-#         if self.semantic_masks_folder is not None:
-#             semantic_mask = Image.open(os.path.join(
-#                 self.semantic_masks_folder, path + ".png"))
-#             semantic_mask = np.array(semantic_mask)
-#         # number of objects in the image
-#         num_objs = len(coco_annotation)
+        if len_train < 1 or len_val < 1:
+            raise AssertionError("datasets length cannot be zero")
+        train_set, val_set = torch.utils.data.random_split(
+            kitti_dataset, [len_train, len_val])
+        return train_set, val_set
+    else:
+        return kitti_dataset
 
-#         # Bounding boxes for objects
-#         # In coco format, bbox = [xmin, ymin, width, height]
-#         # In pytorch, the input should be [xmin, ymin, xmax, ymax]
-#         boxes = []
-#         labels = []
-#         areas = []
-#         iscrowd = []
-#         masks = []
-#         category_ids = []
-#         for i in range(num_objs):
 
-#             xmin = coco_annotation[i]['bbox'][0]
-#             ymin = coco_annotation[i]['bbox'][1]
-#             xmax = xmin + coco_annotation[i]['bbox'][2]
-#             ymax = ymin + coco_annotation[i]['bbox'][3]
-#             boxes.append([xmin, ymin, xmax, ymax])
+def collate_fn(batch):
+    return tuple(zip(*batch))
 
-#             category_id = coco_annotation[i]['category_id']
-#             label = coco.cats[category_id]['name']
-#             labels.append(self.obj_categories.index(label) + 1)
-#             # TODO: Coco does not calculate area like this, This is only a quick fix for hasty anns area=0
-#             area = coco_annotation[i]['bbox'][2] * \
-#                 coco_annotation[i]['bbox'][3]
-#             areas.append(area)
 
-#             iscrowd.append(coco_annotation[i]['iscrowd'])
+def get_dataloaders(batch_size, imgs_root, data_depth_velodyne_root, data_depth_annotated_root, calib_velo2cam, calib_cam2cam, split=False, val_size=0.20):
 
-#             mask = coco.annToMask(coco_annotation[i])
-#             masks.append(mask)
+    if split:
+        train_set, val_set = get_datasets(imgs_root=imgs_root, data_depth_velodyne_root=data_depth_velodyne_root,
+                                          data_depth_annotated_root=data_depth_annotated_root, calib_velo2cam=calib_velo2cam, calib_cam2cam=calib_cam2cam,
+                                          split=split, val_size=val_size)
 
-#             category_ids.append(category_id)
+        data_loader_train = torch.utils.data.DataLoader(train_set,
+                                                        batch_size=batch_size,
+                                                        shuffle=False,
+                                                        num_workers=4,
+                                                        collate_fn=collate_fn,
+                                                        drop_last=True)
 
-#         if num_objs > 0:
-#             boxes = torch.as_tensor(boxes, dtype=torch.float32)
-#             areas = torch.as_tensor(areas, dtype=torch.float32)
-#             labels = torch.as_tensor(labels, dtype=torch.int64)
-#             masks = torch.as_tensor(masks, dtype=torch.uint8)
-#             iscrowd = torch.as_tensor(iscrowd, dtype=torch.int64)
-#         else:
-#             boxes = torch.zeros((0, 4), dtype=torch.float32)
-#             areas = torch.as_tensor(
-#                 (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]))
-#             labels = torch.zeros((1), dtype=torch.int64)
-#             masks = torch.zeros(
-#                 (1, *config.ORIGINAL_INPUT_SIZE_HW), dtype=torch.uint8)
-#             iscrowd = torch.zeros((0,), dtype=torch.int64)
+        data_loader_val = torch.utils.data.DataLoader(val_set,
+                                                      batch_size=batch_size,
+                                                      shuffle=False,
+                                                      num_workers=4,
+                                                      collate_fn=collate_fn,
+                                                      drop_last=True)
+        return data_loader_train, data_loader_val
 
-#         # Tensorise img_id
-#         img_id = torch.tensor([img_id])
-#         # Iscrowd
+    else:
+        dataset = get_datasets(imgs_root=imgs_root, data_depth_velodyne_root=data_depth_velodyne_root,
+                               data_depth_annotated_root=data_depth_annotated_root, calib_velo2cam=calib_velo2cam, calib_cam2cam=calib_cam2cam)
 
-#         category_ids = torch.as_tensor(category_ids, dtype=torch.int64)
-
-#         # Num of instance objects
-#         num_objs = torch.as_tensor(num_objs, dtype=torch.int64)
-
-#         # Annotation is in dictionary format
-#         my_annotation = {}
-#         my_annotation["boxes"] = boxes
-#         my_annotation["labels"] = labels
-#         my_annotation["image_id"] = img_id
-#         my_annotation["area"] = areas
-#         my_annotation["iscrowd"] = iscrowd
-#         my_annotation["category_ids"] = category_ids
-#         my_annotation["num_instances"] = num_objs
-#         my_annotation['masks'] = masks
-
-#         # ------- Lidar ------------
-#         # TODO: Lidar image should be the same, we'll use one dummy image for
-#         # which there's lidar data available
-
-#         dummy_img = "img.png"
-#         lidar_img_filename = os.path.join(self.lidar_root, dummy_img)
-#         lidar_img = Image.open(lidar_img_filename)
-#         # lidar_img_cv2 = cv2.cvtColor(cv2.imread(lidar_img_filename), cv2.COLOR_BGR2RGB)
         
-#         lidar_fov_filename = "lidar_fov.mat"
-#         lidar_fov_path = os.path.join(self.lidar_root, lidar_fov_filename)
-#         lidar_fov = scipy.io.loadmat(lidar_fov_path)["lidar_fov"] # N x 3
-#         lidar_fov = torch.tensor(lidar_fov, dtype=torch.float) # N x 3
 
-#         imPts_filename = "imPts.mat"
-#         imPts_path = os.path.join(self.lidar_root, imPts_filename)
-#         imPts = scipy.io.loadmat(imPts_path)["imPts"] # N x 2
-#         imPts = torch.tensor(imPts, dtype=torch.float) # N x 2
-
-#         imPts = torch.floor(imPts*config.RESIZE) # N x 2 resized
-
-#         # my_annotation["lidar_img_cv2"] = lidar_img_cv2
-#         # my_annotation["lidar_fov"] = lidar_fov 
-#         # my_annotation["imPts_original"] = imPts 
-
-#         if self.semantic_masks_folder is not None:
-#             semantic_mask = torch.as_tensor(semantic_mask, dtype=torch.uint8)
-#             my_annotation["semantic_mask"] = semantic_mask
-
-#         if self.transforms is not None:
-#             lidar_img = self.transforms(lidar_img)
-#             img = self.transforms(img)
-
-#         return lidar_img, lidar_fov, imPts
-
-#     def __len__(self):
-#         return len(self.ids)
+        data_loader = torch.utils.data.DataLoader(dataset,
+                                                  batch_size=batch_size,
+                                                  shuffle=False,
+                                                  num_workers=4,
+                                                  collate_fn=collate_fn,
+                                                  drop_last=True)
+        return data_loader
 
 
-# def get_transform():
-#     new_size = tuple(np.ceil(x*config.RESIZE) for x in config.ORIGINAL_INPUT_SIZE_HW)
-#     new_size = tuple(int(x) for x in new_size)
-#     custom_transforms = []
-#     custom_transforms.append(transforms.Resize(new_size))
-#     custom_transforms.append(transforms.ToTensor())
-#     return transforms.Compose(custom_transforms)
+imgs_root = os.path.join(os.path.dirname(os.path.abspath(
+    __file__)), "../data_kitti/kitti_depth_completion_unmodified/imgs/2011_09_26/val/")
+data_depth_velodyne_root = os.path.join(os.path.dirname(os.path.abspath(
+    __file__)), "../data_kitti/kitti_depth_completion_unmodified/data_depth_velodyne/val/")
+data_depth_annotated_root = os.path.join(os.path.dirname(os.path.abspath(
+    __file__)), "../data_kitti/kitti_depth_completion_unmodified/data_depth_annotated/val/")
+
+calib_velo2cam = calib_filename = os.path.join(os.path.dirname(os.path.abspath(
+    __file__)), "../data_kitti/kitti_depth_completion_unmodified/imgs/2011_09_26/calib_velo_to_cam.txt")
+calib_cam2cam = calib_filename = os.path.join(os.path.dirname(os.path.abspath(
+    __file__)), "../data_kitti/kitti_depth_completion_unmodified/imgs/2011_09_26/calib_cam_to_cam.txt")
+
+kitti_data_loader = get_dataloaders(batch_size=1, imgs_root=imgs_root,
+                                    data_depth_velodyne_root=data_depth_velodyne_root, data_depth_annotated_root=data_depth_annotated_root, calib_velo2cam=calib_velo2cam, calib_cam2cam=calib_cam2cam)
 
 
-# def get_datasets(root, lidar_root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False):
+# for img, imPts, lidar_fov, gt_img in kitti_data_loader:
+#     print(img.shape, imPts.shape, lidar_fov.shape, gt_img.shape)
+iterator = iter(kitti_data_loader)
 
-#     # if is_test_set:
-#     #     test_dataset = testDataset(root, transforms=get_transform())
-#     #     return test_dataset
+img, imPts, lidar_fov, gt_img = next(iterator)
 
-#     my_dataset = myOwnDataset(root=root,
-#                               lidar_root=lidar_root,
-#                               annotation=annotation,
-#                               transforms=get_transform(),
-#                               semantic_masks_folder=semantic_masks_folder
-#                               )
-#     if split:
-#         if val_size >= 1:
-#             raise AssertionError(
-#                 "val_size must be a value within the range of (0,1)")
-
-#         len_val = math.ceil(len(my_dataset)*val_size)
-#         len_train = len(my_dataset) - len_val
-
-#         if len_train < 1 or len_val < 1:
-#             raise AssertionError("datasets length cannot be zero")
-#         train_set, val_set = torch.utils.data.random_split(
-#             my_dataset, [len_train, len_val])
-#         return train_set, val_set
-#     else:
-#         return my_dataset
-
-
-# def collate_fn(batch):
-#     return tuple(zip(*batch))
-
-
-# def get_dataloaders(batch_size, root, lidar_root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False):
-
-#     if is_test_set:
-#         test_set = get_datasets(
-#             root, lidar_root=lidar_root, is_test_set=is_test_set)
-#         data_loader_test = torch.utils.data.DataLoader(test_set,
-#                                                        batch_size=batch_size,
-#                                                        shuffle=False,
-#                                                        num_workers=4,
-#                                                        collate_fn=collate_fn,
-#                                                        drop_last=True)
-#         return data_loader_test
-#     if split:
-#         train_set, val_set = get_datasets(root=root, lidar_root=lidar_root,
-#                                           annotation=annotation,
-#                                           split=split, val_size=val_size,
-#                                           semantic_masks_folder=semantic_masks_folder)
-#         data_loader_train = torch.utils.data.DataLoader(train_set,
-#                                                         batch_size=batch_size,
-#                                                         shuffle=False,
-#                                                         num_workers=4,
-#                                                         collate_fn=collate_fn,
-#                                                         drop_last=True)
-
-#         data_loader_val = torch.utils.data.DataLoader(val_set,
-#                                                       batch_size=batch_size,
-#                                                       shuffle=False,
-#                                                       num_workers=4,
-#                                                       collate_fn=collate_fn,
-#                                                       drop_last=True)
-#         return data_loader_train, data_loader_val
-#     else:
-#         dataset = get_datasets(
-#             root=root, lidar_root=lidar_root, annotation=annotation, semantic_masks_folder=semantic_masks_folder)
-#         data_loader = torch.utils.data.DataLoader(dataset,
-#                                                   batch_size=batch_size,
-#                                                   shuffle=False,
-#                                                   num_workers=4,
-#                                                   collate_fn=collate_fn,
-#                                                   drop_last=True)
-#         return data_loader
+print(img[0].shape, imPts[0].shape, lidar_fov[0].shape, gt_img[0].shape)

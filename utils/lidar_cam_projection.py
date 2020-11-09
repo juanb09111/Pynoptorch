@@ -68,6 +68,20 @@ class Box3D(object):
 # =========================================================
 # Projections
 # =========================================================
+
+def full_project_velo_to_cam2(calib_velo2cam, calib_cam2cam):
+    P_velo2cam_ref = np.eye(4)
+    P_velo2cam_ref[:3,:3] = calib_velo2cam["R"].reshape(3,3)
+    P_velo2cam_ref[0:3, 3] = calib_velo2cam["T"].transpose()
+    
+    R_ref2rect = np.eye(4)
+    R0_rect = calib_cam2cam['R_rect_00'].reshape(3, 3)
+    R_ref2rect[:3, :3] = R0_rect
+
+    P_rect2cam2 = calib_cam2cam['P_rect_02'].reshape((3, 4))
+    proj_mat = P_rect2cam2 @ R_ref2rect @ P_velo2cam_ref
+    return proj_mat
+
 def project_velo_to_cam2(calib):
     P_velo2cam_ref = np.vstack((calib['Tr_velo_to_cam'].reshape(
         3, 4), np.array([0., 0., 0., 1.])))  # velo2ref_cam
@@ -308,48 +322,85 @@ def draw_lidar(pc, color=None, fig=None, bgcolor=(0, 0, 0), pts_scale=1, pts_mod
 
 # ----------------------------------------------------------
 
+
+def show_lidar_2_img(imgs, lidar_points_fov, pts_2d_fov):
+    batch_size = lidar_points_fov.shape[0]
+
+    for i in range(batch_size):
+        img = imgs[i]
+        lidar_points = lidar_points_fov[i] # N x 3
+
+        pts_2d = pts_2d_fov[i]
+        num_points = pts_2d_fov.shape[1] # N x 2
+         # show lidar points on image
+        cmap = plt.cm.get_cmap('hsv', 256)
+        cmap = np.array([cmap(i) for i in range(256)])[:, :3] * 255
+
+        max_depth = torch.max(lidar_points[:, 2])
+        min_depth = torch.min(lidar_points[:, 2])
+        depth_range = max_depth - min_depth
+        depth_2_color = (lidar_points[:, 2] - min_depth)/depth_range
+        depth_2_color = depth_2_color * 255
+        depth_2_color = depth_2_color.cpu()
+
+        for idx in range(num_points):
+            depth = depth_2_color[idx]
+            color = cmap[int(depth), :]
+            # color = cmap[100, :]
+            cv2.circle(img, (int(pts_2d[idx, 0]), int(pts_2d[idx, 1])),
+                        2, color=tuple(color), thickness=-1)
+        plt.imshow(img)
+        plt.yticks([])
+        plt.xticks([])
+        plt.show()
+
+
 def show_lidar_2d(imgs, lidar_points_fov, pts_2d_fov, proj_lidar2cam):
-        
-        batch_size = lidar_points_fov.shape[0]
 
-        for i in range(batch_size):
-            img = imgs[i]
-            lidar_points = lidar_points_fov[i]
-            
-            pts_2d = pts_2d_fov[i]
-            num_points = pts_2d_fov.shape[1]
+    batch_size = lidar_points_fov.shape[0]
 
-            # Homogeneous coords
-            ones = torch.ones(
-                (lidar_points.shape[0], 1), device=temp_variables.DEVICE)
+    for i in range(batch_size):
+        img = imgs[i]
+        lidar_points = lidar_points_fov[i]
 
-            lidar_points = torch.cat([lidar_points, ones], dim=1)
+        pts_2d = pts_2d_fov[i] # N x 2
+        num_points = pts_2d_fov.shape[1]
 
-            # lidar_points_2_cam = 3 x N
-            lidar_points_2_cam = torch.matmul(
-                proj_lidar2cam, lidar_points.transpose(0, 1))
-            # show lidar points on image
-            cmap = plt.cm.get_cmap('hsv', 256)
-            cmap = np.array([cmap(i) for i in range(256)])[:, :3] * 255
+        # Homogeneous coords
+        ones = torch.ones(
+            (lidar_points.shape[0], 1), device=temp_variables.DEVICE)
 
-            for idx in range(num_points):
-                depth = lidar_points_2_cam[2, idx]
-                color = cmap[int(640.0 / depth), :]
-                cv2.circle(img, (int(torch.round(pts_2d[idx, 0])),
-                                 int(torch.round(pts_2d[idx, 1]))),
-                           2, color=tuple(color), thickness=-1)
-            plt.imshow(img)
-            plt.yticks([])
-            plt.xticks([])
-            plt.show()
+        lidar_points = torch.cat([lidar_points, ones], dim=1)
+
+        # lidar_points_2_cam = 3 x N
+        lidar_points_2_cam = torch.matmul(
+            proj_lidar2cam, lidar_points.transpose(0, 1))
+        # show lidar points on image
+        cmap = plt.cm.get_cmap('hsv', 256)
+        cmap = np.array([cmap(i) for i in range(256)])[:, :3] * 255
+
+        for idx in range(num_points):
+            depth = lidar_points_2_cam[2, idx]
+            color = cmap[int(640.0 / depth), :]
+            # color = cmap[100, :]
+            cv2.circle(img, (int(torch.round(pts_2d[idx, 0])),
+                             int(torch.round(pts_2d[idx, 1]))),
+                       2, color=tuple(color), thickness=-1)
+        plt.imshow(img)
+        plt.yticks([])
+        plt.xticks([])
+        plt.show()
+
 
 def find_k_nearest(k, batch_lidar_fov):
-        distances = torch.cdist(batch_lidar_fov, batch_lidar_fov, p=2)
-        _, indices = torch.topk(distances, k + 1, dim=2, largest=False)
-        indices = indices[:, :, 1:] # B x N x 3
-        return indices
 
-def pre_process_points(features, lidar_points, proj_lidar2cam , k_number):
+    distances = torch.cdist(batch_lidar_fov, batch_lidar_fov, p=2)
+    _, indices = torch.topk(distances, k + 1, dim=2, largest=False)
+    indices = indices[:, :, 1:]  # B x N x 3
+    return indices
+
+
+def pre_process_points(features, lidar_points, proj_lidar2cam, k_number):
     """
     features = B x C x H x W
     lidar_points = B x N x 3
@@ -358,26 +409,29 @@ def pre_process_points(features, lidar_points, proj_lidar2cam , k_number):
     C = features.shape[1]
     h, w = features.shape[2:]
 
-    # create mask 
-    mask = torch.zeros((B,h,w), device=temp_variables.DEVICE, dtype=torch.bool)
+    # create mask
+    mask = torch.zeros(
+        (B, h, w), device=temp_variables.DEVICE, dtype=torch.bool)
 
     # project lidar to image
-    pts_2d = project_to_image_torch( lidar_points.transpose(1, 2), proj_lidar2cam)
-    
-    pts_2d = pts_2d.transpose(1, 2) # B x N x 2
-    
-    pts_2d= torch.round(pts_2d).cuda().long() # convert to int
+    pts_2d = project_to_image_torch(
+        lidar_points.transpose(1, 2), proj_lidar2cam)
+
+    pts_2d = pts_2d.transpose(1, 2)  # B x N x 2
+
+    pts_2d = torch.round(pts_2d).cuda().long()  # convert to int
 
     batch_pts_fov = []
     batch_lidar_fov = []
 
     for idx, points in enumerate(pts_2d):
-        
+
         # find unique indices
         _, indices = torch.unique(points, dim=0, return_inverse=True)
         unique_indices = torch.zeros_like(torch.unique(indices))
-
-        # fill with indixes with unique values 
+        print(indices.shape)
+        print(unique_indices.shape)
+        # fill with indixes with unique values
         current_pos = 0
         for i, val in enumerate(indices):
             if val not in indices[:i]:
@@ -386,24 +440,24 @@ def pre_process_points(features, lidar_points, proj_lidar2cam , k_number):
 
         # filter unique points
         points = points[unique_indices]
-        new_lidar_points= lidar_points[idx][unique_indices]
+        new_lidar_points = lidar_points[idx][unique_indices]
 
+        print(torch.min(points[:, 1]), torch.max(points[:, 1]))
         # find values within image fov
         inds = torch.where((points[:, 0] < w - 1) & (points[:, 0] >= 0) &
-                            (points[:, 1] < h - 1) & (points[:, 1] >= 0) &
-                            (new_lidar_points[:, 0] > 0))
+                           (points[:, 1] < h - 1) & (points[:, 1] >= 0) &
+                           (new_lidar_points[:, 0] > 0))
 
-        
         batch_lidar_fov.append(new_lidar_points[inds])
         batch_pts_fov.append(points[inds])
 
         # create mask
-        mask[idx, points[inds][:,1], points[inds][:,0]] = True
+        mask[idx, points[inds][:, 1], points[inds][:, 0]] = True
 
     # tensorize lists
     batch_pts_fov = tensorize_batch(batch_pts_fov, temp_variables.DEVICE)
     batch_lidar_fov = tensorize_batch(batch_lidar_fov, temp_variables.DEVICE)
-    
+
     # find knn for lidar points within fov
     batch_k_nn_indices = find_k_nearest(k_number, batch_lidar_fov)
 
