@@ -6,7 +6,7 @@ from common_blocks.depth_wise_conv import depth_wise_conv
 from common_blocks.depth_wise_sep_conv import depth_wise_sep_conv
 from common_blocks.continuous_conv import ContinuousConvolution
 import temp_variables
-
+import config_kitti
 
 
 class Two_D_Branch(nn.Module):
@@ -56,6 +56,7 @@ class Three_D_Branch(nn.Module):
         coors: B x N x 3 (points coordinates)
         indices: B x N x K (knn indices, aka. mask_knn)
         """
+        
         B, C, _, _ = feats.shape
         feats_mask = feats.permute(0, 2, 3, 1)[mask].view(B, -1, C)
         br_3d, _, _ = self.branch_3d_continuous((feats_mask, coors, indices)) # B x N x C
@@ -154,7 +155,7 @@ class FuseNet(nn.Module):
         
 
 
-    def forward(self, img, sparse_depth, mask, coors, k_nn_indices):
+    def forward(self, img, sparse_depth, mask, coors, k_nn_indices, gt_img):
         """
         inputs:
         img: input rgb (B x 3 x H x W)
@@ -166,7 +167,7 @@ class FuseNet(nn.Module):
         output:
         depth: completed depth
         """
-
+        
         _, H, W = mask.shape
 
         # sparse depth branch
@@ -181,5 +182,19 @@ class FuseNet(nn.Module):
         y_rgbd_concat_y_sparse = F.interpolate(y_rgbd_concat_y_sparse, (H, W))
         
         fused, _, _, _ = self.fuse_conv((y_rgbd_concat_y_sparse, mask, coors, k_nn_indices))
+
+        out = self.output_layer(fused)
+
+        if self.training:
+            out_original_size = F.interpolate(out, config_kitti.ORIGINAL_INPUT_SIZE_HW)
+            
+            l2 = F.mse_loss(out_original_size, gt_img)
+            l1 = F.l1_loss(out_original_size, gt_img)
+
+            total_loss = l2 + l1*torch.tensor((config_kitti.LOSS_ALPHA), device=temp_variables.DEVICE)
+
+            losses = {"depth_loss": total_loss}
+
+            return losses
         
         return self.output_layer(fused)

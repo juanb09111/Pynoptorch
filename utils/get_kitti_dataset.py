@@ -7,7 +7,7 @@ from pycocotools.coco import COCO
 import torchvision.transforms as transforms
 from PIL import Image
 import numpy as np
-import config
+import config_kitti
 from utils.lidar_cam_projection import read_calib_file, load_velo_scan, full_project_velo_to_cam2, project_to_image
 import glob
 import cv2
@@ -195,7 +195,17 @@ class kittiDataset(torch.utils.data.Dataset):
         imPts = imPts[unique_indices]
         lidar_fov = lidar_fov[unique_indices]
 
-        return imPts, lidar_fov
+        return imPts[:config_kitti.N_NUMBER, :], lidar_fov[:config_kitti.N_NUMBER, :]
+    
+    def find_k_nearest(self, lidar_fov):
+        k_number = config_kitti.K_NUMBER
+        b_lidar_fov = torch.unsqueeze(lidar_fov, dim=0)
+
+        distances = torch.cdist(b_lidar_fov, b_lidar_fov, p=2)
+        _, indices = torch.topk(distances, k_number + 1, dim=2, largest=False)
+        indices = indices[:, :, 1:]  # B x N x 3
+
+        return indices.squeeze_(0).long()
 
     def __getitem__(self, index):
 
@@ -208,6 +218,7 @@ class kittiDataset(torch.utils.data.Dataset):
 
         img = Image.open(img_filename)
         gt_img = Image.open(depth_gt)
+
 
         pc_velo = load_velo_scan(lidar_filename)[:, :3]
 
@@ -243,42 +254,47 @@ class kittiDataset(torch.utils.data.Dataset):
         # to return
         imPts = torch.tensor(
             imgfov_pc_pixel, dtype=torch.float).permute(1, 0)  # N x 2
-        imPts = torch.floor(imPts*config.RESIZE)  # N x 2 resized
+        imPts = torch.floor(imPts*config_kitti.RESIZE).long()  # N x 2 resized
 
         lidar_fov = torch.tensor(
             imgfov_pc_cam2, dtype=torch.float).permute(1, 0)  # N x 3
 
         # remove duplicate
         imPts, lidar_fov = self.pre_process_points(imPts, lidar_fov)
-
+        
         if self.transforms is not None:
-            img = self.transforms(resize=True)(img)
-            gt_img = self.transforms(resize=False)(gt_img)
-        print("here")
-        return img, imPts, lidar_fov, gt_img
+            img = self.transforms(resize=True)(img).permute(0,3,1,2).squeeze_(0)
+            gt_img = self.transforms(resize=False, normalize=False)(gt_img)
+            # print(img.shape, gt_img.shape)
+        
+        mask = torch.zeros(img.shape[1:], dtype=torch.bool)
+        # mask = torch.zeros_like(img[0,:,:].squeeze_(0), dtype=torch.bool)
+        sparse_depth = torch.zeros_like(img[0,:,:].unsqueeze_(0))
+
+        mask[imPts[:,1], imPts[:,0]] = True
+        sparse_depth[0, imPts[:, 1], imPts[:, 0]] = lidar_fov[:, 2]
+        
+        k_nn_indices = self.find_k_nearest(lidar_fov)
+
+        return img, imPts, lidar_fov, mask, sparse_depth, k_nn_indices, gt_img
 
     def __len__(self):
         return len(self.source_imgs)
 
 
-def get_transform(resize=True):
-    new_size = tuple(np.ceil(x*config.RESIZE)
-                     for x in config.ORIGINAL_INPUT_SIZE_HW)
+def get_transform(resize=True, normalize=False):
+    new_size = tuple(np.ceil(x*config_kitti.RESIZE)
+                     for x in config_kitti.ORIGINAL_INPUT_SIZE_HW)
     new_size = tuple(int(x) for x in new_size)
     custom_transforms = []
     if resize:
-        custom_transforms.append(transforms.Resize(new_size))
-    custom_transforms.append(transforms.ToTensor())
+        custom_transforms.append(transforms.Resize(new_size))   
 
+    custom_transforms.append(transforms.Lambda(lambda image: torch.from_numpy(np.array(image).astype(np.float32)/255).unsqueeze(0)))
+    if normalize: 
+        custom_transforms.append(transforms.Normalize(0.485, 0.229))
     return transforms.Compose(custom_transforms)
 
-
-# kitti_dataset = kittiDataset(
-#     imgs_root, data_depth_velodyne_root, data_depth_annotated_root, calib_velo2cam, calib_cam2cam, transforms=get_transform)
-
-# img, imPts, lidar_fov, gt_img = kitti_dataset.__getitem__(200)
-
-# print(img.shape, imPts.shape, lidar_fov.shape, gt_img.shape)
 
 def get_datasets(imgs_root, data_depth_velodyne_root, data_depth_annotated_root, calib_velo2cam, calib_cam2cam, split=False, val_size=0.20):
 
@@ -342,26 +358,32 @@ def get_dataloaders(batch_size, imgs_root, data_depth_velodyne_root, data_depth_
         return data_loader
 
 
-imgs_root = os.path.join(os.path.dirname(os.path.abspath(
-    __file__)), "../data_kitti/kitti_depth_completion_unmodified/imgs/2011_09_26/val/")
-data_depth_velodyne_root = os.path.join(os.path.dirname(os.path.abspath(
-    __file__)), "../data_kitti/kitti_depth_completion_unmodified/data_depth_velodyne/val/")
-data_depth_annotated_root = os.path.join(os.path.dirname(os.path.abspath(
-    __file__)), "../data_kitti/kitti_depth_completion_unmodified/data_depth_annotated/val/")
+# imgs_root = os.path.join(os.path.dirname(os.path.abspath(
+#     __file__)), "../data_kitti/kitti_depth_completion_unmodified/imgs/2011_09_26/val/")
+# data_depth_velodyne_root = os.path.join(os.path.dirname(os.path.abspath(
+#     __file__)), "../data_kitti/kitti_depth_completion_unmodified/data_depth_velodyne/val/")
+# data_depth_annotated_root = os.path.join(os.path.dirname(os.path.abspath(
+#     __file__)), "../data_kitti/kitti_depth_completion_unmodified/data_depth_annotated/val/")
 
-calib_velo2cam = calib_filename = os.path.join(os.path.dirname(os.path.abspath(
-    __file__)), "../data_kitti/kitti_depth_completion_unmodified/imgs/2011_09_26/calib_velo_to_cam.txt")
-calib_cam2cam = calib_filename = os.path.join(os.path.dirname(os.path.abspath(
-    __file__)), "../data_kitti/kitti_depth_completion_unmodified/imgs/2011_09_26/calib_cam_to_cam.txt")
+# calib_velo2cam = calib_filename = os.path.join(os.path.dirname(os.path.abspath(
+#     __file__)), "../data_kitti/kitti_depth_completion_unmodified/imgs/2011_09_26/calib_velo_to_cam.txt")
+# calib_cam2cam = calib_filename = os.path.join(os.path.dirname(os.path.abspath(
+#     __file__)), "../data_kitti/kitti_depth_completion_unmodified/imgs/2011_09_26/calib_cam_to_cam.txt")
 
-kitti_data_loader = get_dataloaders(batch_size=1, imgs_root=imgs_root,
-                                    data_depth_velodyne_root=data_depth_velodyne_root, data_depth_annotated_root=data_depth_annotated_root, calib_velo2cam=calib_velo2cam, calib_cam2cam=calib_cam2cam)
+# kitti_data_loader = get_dataloaders(batch_size=1, imgs_root=imgs_root,
+#                                     data_depth_velodyne_root=data_depth_velodyne_root, data_depth_annotated_root=data_depth_annotated_root, calib_velo2cam=calib_velo2cam, calib_cam2cam=calib_cam2cam)
 
 
-# for img, imPts, lidar_fov, gt_img in kitti_data_loader:
-#     print(img.shape, imPts.shape, lidar_fov.shape, gt_img.shape)
-iterator = iter(kitti_data_loader)
+# iterator = iter(kitti_data_loader)
 
-img, imPts, lidar_fov, gt_img = next(iterator)
+# # (img, imPts, lidar_fov, mask, sparse_depth), gt_img = next(iterator)
 
-print(img[0].shape, imPts[0].shape, lidar_fov[0].shape, gt_img[0].shape)
+# img, imPts, lidar_fov, mask, sparse_depth, k_nn_indices, gt_img = next(iterator)
+
+# # print(img[0].shape, imPts[0].shape, lidar_fov[0].shape, gt_img[0].shape)
+
+# # img, imPts, lidar_fov, mask, sparse_depth = data_tuple[0]
+
+
+
+# print(img[0].shape, imPts[0].shape, lidar_fov[0].shape, mask[0].shape, sparse_depth[0].shape, k_nn_indices[0].shape, gt_img[0].shape)
