@@ -186,14 +186,15 @@ class FuseNet(nn.Module):
         out = self.output_layer(fused)
 
         if self.training:
-            out_original_size = F.interpolate(out, config_kitti.ORIGINAL_INPUT_SIZE_HW)
-            
+            out_original_size = F.interpolate(out, config_kitti.ORIGINAL_INPUT_SIZE_HW).squeeze_(1)
+            # print("out", torch.max(out_original_size), torch.min(out_original_size))
+            # print("gt_img", torch.max(gt_img), torch.min(gt_img))
             l2 = F.mse_loss(out_original_size, gt_img)
-            l1 = F.l1_loss(out_original_size, gt_img)
+            # l1 = F.smooth_l1_loss(out_original_size, gt_img)
 
-            total_loss = l2 + l1*torch.tensor((config_kitti.LOSS_ALPHA), device=temp_variables.DEVICE)
+            # total_loss = l2 + l1*torch.tensor((config_kitti.LOSS_ALPHA), device=temp_variables.DEVICE)
 
-            losses = {"depth_loss": total_loss}
+            losses = {"depth_loss": l2}
 
             return losses
         

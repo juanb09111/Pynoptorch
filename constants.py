@@ -10,6 +10,10 @@ TRAIN_DIR = "data_train/"
 VAL_DIR = "data_val/"
 
 TRAIN_RES_FILENAME = "training_results.txt"
+KITTI_TRAIN_RES_FILENAME = "kitti_training_results.txt"
+
+KITTI_DATA_LOADER_TRAIN_FILANME = "kitti_data_loader_train.pth"
+KITTI_DATA_LOADER_VAL_FILENAME = "kitti_data_loader_val.pth"
 
 DATA_LOADER_TRAIN_FILANME = "data_loader_train.pth"
 DATA_LOADER_VAL_FILENAME = "data_loader_val.pth"

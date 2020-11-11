@@ -195,6 +195,11 @@ class kittiDataset(torch.utils.data.Dataset):
         imPts = imPts[unique_indices]
         lidar_fov = lidar_fov[unique_indices]
 
+        # rand_indices = torch.randint(0, imPts.shape[0], (config_kitti.N_NUMBER, 1))
+        rand_perm = torch.randperm(imPts.shape[0])
+        imPts = imPts[rand_perm, :]
+        lidar_fov = lidar_fov[rand_perm, :]
+        # print("randint", rand_perm.shape, imPts.shape, lidar_fov.shape)
         return imPts[:config_kitti.N_NUMBER, :], lidar_fov[:config_kitti.N_NUMBER, :]
     
     def find_k_nearest(self, lidar_fov):
@@ -219,6 +224,9 @@ class kittiDataset(torch.utils.data.Dataset):
         img = Image.open(img_filename)
         gt_img = Image.open(depth_gt)
 
+        gt_img = torch.from_numpy(np.array(gt_img, dtype=int).astype(np.float)/256)
+
+        # print(torch.max(gt_img_tensor), torch.min(gt_img_tensor))
 
         pc_velo = load_velo_scan(lidar_filename)[:, :3]
 
@@ -248,9 +256,12 @@ class kittiDataset(torch.utils.data.Dataset):
         imgfov_pc_cam2 = proj_velo2cam2 @ imgfov_pc_velo.transpose()
 
         # visualize
-        # self.visualize_projection(
-        #     img_filename, imgfov_pc_pixel, imgfov_pc_cam2)
+        # self.visualize_projection(img_filename, imgfov_pc_pixel, imgfov_pc_cam2)
 
+        # gt_img_rgb = cv2.cvtColor(cv2.imread(depth_gt), cv2.COLOR_BGR2RGB)
+        # plt.imshow(gt_img_rgb)
+        # print('gt_rgb')
+        # plt.show()
         # to return
         imPts = torch.tensor(
             imgfov_pc_pixel, dtype=torch.float).permute(1, 0)  # N x 2
@@ -261,25 +272,47 @@ class kittiDataset(torch.utils.data.Dataset):
 
         # remove duplicate
         imPts, lidar_fov = self.pre_process_points(imPts, lidar_fov)
+
+        # print(imPts.shape)
         
         if self.transforms is not None:
-            img = self.transforms(resize=True)(img).permute(0,3,1,2).squeeze_(0)
-            gt_img = self.transforms(resize=False, normalize=False)(gt_img)
+            img = self.transforms(resize=True)(img)
+            # gt_img = self.transforms(resize=False, normalize=True)(gt_img)
             # print(img.shape, gt_img.shape)
-        
+            # # print(torch.max(gt_img), gt_img.min())
+            # plt.imshow(gt_img.permute(1,2,0))
+            # print('gt_torch')
+            # plt.show()
+
+            # plt.imshow(img.permute(1,2,0))
+            # print('im_torch')
+            # plt.show()
+
         mask = torch.zeros(img.shape[1:], dtype=torch.bool)
+        # print(mask.shape)
         # mask = torch.zeros_like(img[0,:,:].squeeze_(0), dtype=torch.bool)
         sparse_depth = torch.zeros_like(img[0,:,:].unsqueeze_(0))
 
         mask[imPts[:,1], imPts[:,0]] = True
         sparse_depth[0, imPts[:, 1], imPts[:, 0]] = lidar_fov[:, 2]
         
-        k_nn_indices = self.find_k_nearest(lidar_fov)
+        # plt.imshow(mask)
+        # print('mask')
+        # plt.show()
 
+        # plt.imshow(sparse_depth.permute(1,2,0))
+        # print('sparse_depth')
+        # plt.show()
+
+        k_nn_indices = self.find_k_nearest(lidar_fov)
+        # print("max", torch.max(gt_img), torch.min(gt_img), gt_img.shape)
+        # print(img.shape, imPts.shape, lidar_fov.shape, mask.shape, sparse_depth.shape, k_nn_indices.shape, gt_img.shape)
         return img, imPts, lidar_fov, mask, sparse_depth, k_nn_indices, gt_img
 
     def __len__(self):
         return len(self.source_imgs)
+
+
 
 
 def get_transform(resize=True, normalize=False):
@@ -290,11 +323,29 @@ def get_transform(resize=True, normalize=False):
     if resize:
         custom_transforms.append(transforms.Resize(new_size))   
 
-    custom_transforms.append(transforms.Lambda(lambda image: torch.from_numpy(np.array(image).astype(np.float32)/255).unsqueeze(0)))
+    custom_transforms.append(transforms.ToTensor())
+    # custom_transforms.append(transforms.Lambda(lambda image: torch.from_numpy(np.array(image).astype(np.float32)/255).unsqueeze(0)))
     if normalize: 
         custom_transforms.append(transforms.Normalize(0.485, 0.229))
     return transforms.Compose(custom_transforms)
 
+
+# imgs_root_train = os.path.join(os.path.dirname(os.path.abspath(
+#             __file__)), "..", config_kitti.DATA, "imgs/2011_09_26/train/")
+# data_depth_velodyne_root_train = os.path.join(os.path.dirname(os.path.abspath(
+#     __file__)), "..", config_kitti.DATA, "data_depth_velodyne/train/")
+# data_depth_annotated_root_train = os.path.join(os.path.dirname(os.path.abspath(
+#     __file__)), "..", config_kitti.DATA, "data_depth_annotated/train/")
+
+# calib_velo2cam = calib_filename = os.path.join(os.path.dirname(os.path.abspath(
+#     __file__)), "..", config_kitti.DATA, "imgs/2011_09_26/calib_velo_to_cam.txt")
+# calib_cam2cam = calib_filename = os.path.join(os.path.dirname(os.path.abspath(
+#     __file__)), "..", config_kitti.DATA, "imgs/2011_09_26/calib_cam_to_cam.txt")
+
+# kitti_dataset = kittiDataset(imgs_root_train, data_depth_velodyne_root_train, data_depth_annotated_root_train, calib_velo2cam, calib_cam2cam, transforms=get_transform)
+# for i in range(500):
+
+#     kitti_dataset.__getitem__(np.random.randint(500))
 
 def get_datasets(imgs_root, data_depth_velodyne_root, data_depth_annotated_root, calib_velo2cam, calib_cam2cam, split=False, val_size=0.20):
 
