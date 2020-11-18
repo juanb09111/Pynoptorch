@@ -69,6 +69,23 @@ class Box3D(object):
 # Projections
 # =========================================================
 
+def full_project_cam2_velo(calib_velo2cam, calib_cam2cam):
+    P_velo2cam_ref = np.eye(4)
+    P_velo2cam_ref[:3,:3] = calib_velo2cam["R"].reshape(3,3)
+    P_velo2cam_ref[0:3, 3] = calib_velo2cam["T"].transpose()
+    P_velo2cam_ref_inv = np.linalg.inv(P_velo2cam_ref) #cam_ref2velo
+
+
+    R_ref2rect = np.eye(4)
+    R0_rect = calib_cam2cam['R_rect_00'].reshape(3, 3)
+    R_ref2rect[:3, :3] = R0_rect 
+    R_ref2rect_inv = np.linalg.inv(R_ref2rect) #rect2R_ref
+
+    proj_mat =  P_velo2cam_ref_inv @  R_ref2rect_inv
+
+    return proj_mat
+
+
 def full_project_velo_to_cam2(calib_velo2cam, calib_cam2cam):
     P_velo2cam_ref = np.eye(4)
     P_velo2cam_ref[:3,:3] = calib_velo2cam["R"].reshape(3,3)

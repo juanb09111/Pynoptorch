@@ -4,20 +4,22 @@ MODEL = "FuseNet"
 MODEL_WEIGHTS_FILENAME_PREFIX = "FuseNet_weights"
 
 ORIGINAL_INPUT_SIZE_HW = (375, 1242)
-RESIZE = 0.7
+RESIZE = 0.5
+CROP_OUTPUT_SIZE = (200, 1000)
+
 
 # for k-nn
-K_NUMBER = 3
+K_NUMBER = 9
 # number of 3D points for the model
-N_NUMBER = 13000
+N_NUMBER = 8000
 
 # alpha parameter for loss calculation
-LOSS_ALPHA = 0
+LOSS_ALPHA = 0.8
 
 
 DATA = "data_kitti/kitti_depth_completion_unmodified/"
 
-MAX_EPOCHS = 60
+MAX_EPOCHS = 100
 
 # If USE_PREEXISTING_DATA_LOADERS is True new data_loaders will not be written
 USE_PREEXISTING_DATA_LOADERS = False

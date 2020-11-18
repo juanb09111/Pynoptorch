@@ -5,6 +5,7 @@ import math
 import torch
 from pycocotools.coco import COCO
 import torchvision.transforms as transforms
+import torch.nn.functional as F
 from PIL import Image
 import numpy as np
 import config_kitti
@@ -12,6 +13,7 @@ from utils.lidar_cam_projection import read_calib_file, load_velo_scan, full_pro
 import glob
 import cv2
 import matplotlib.pyplot as plt
+from utils.fill_depth_colorization import fill_depth_colorization
 # %%
 
 
@@ -39,7 +41,7 @@ def getListOfImgs(dirName):
         elif fullPath.find("image_02") != -1 and fullPath.find(".png") != -1:
             allFiles.append(fullPath)
 
-    return allFiles, sync_folders
+    return allFiles[:600], sync_folders
 
 
 def getListOfDepthData(dirName):
@@ -164,9 +166,10 @@ class kittiDataset(torch.utils.data.Dataset):
         self.lidar_files = lidar_files
         self.transforms = transforms
 
-    def visualize_projection(self, img_filename, imgfov_pc_pixel, imgfov_pc_cam2):
-
-        rgb = cv2.cvtColor(cv2.imread(img_filename), cv2.COLOR_BGR2RGB)
+    def visualize_projection(self, img_filename, imgfov_pc_pixel, imgfov_pc_cam2, upper, lower, left, right):
+        img = cv2.imread(img_filename)[int(upper):int(lower), int(left):int(right)]
+        crop_img = img[int(upper):int(lower), int(left):int(right)]
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         cmap = plt.cm.get_cmap('hsv', 256)
         cmap = np.array([cmap(i) for i in range(256)])[:, :3] * 255
 
@@ -181,7 +184,7 @@ class kittiDataset(torch.utils.data.Dataset):
         plt.xticks([])
         plt.show()
 
-    def pre_process_points(self, imPts, lidar_fov):
+    def pre_process_points(self, imPts, lidar_fov, imgfov_pc_cam2):
 
         _, indices = torch.unique(imPts, dim=0, return_inverse=True)
         unique_indices = torch.zeros_like(torch.unique(indices))
@@ -194,13 +197,15 @@ class kittiDataset(torch.utils.data.Dataset):
 
         imPts = imPts[unique_indices]
         lidar_fov = lidar_fov[unique_indices]
+        imgfov_pc_cam2 = imgfov_pc_cam2[:, unique_indices]
 
         # rand_indices = torch.randint(0, imPts.shape[0], (config_kitti.N_NUMBER, 1))
         rand_perm = torch.randperm(imPts.shape[0])
         imPts = imPts[rand_perm, :]
         lidar_fov = lidar_fov[rand_perm, :]
+        imgfov_pc_cam2 = imgfov_pc_cam2[:, rand_perm]
         # print("randint", rand_perm.shape, imPts.shape, lidar_fov.shape)
-        return imPts[:config_kitti.N_NUMBER, :], lidar_fov[:config_kitti.N_NUMBER, :]
+        return imPts[:config_kitti.N_NUMBER, :], lidar_fov[:config_kitti.N_NUMBER, :], imgfov_pc_cam2[:, :config_kitti.N_NUMBER]
     
     def find_k_nearest(self, lidar_fov):
         k_number = config_kitti.K_NUMBER
@@ -214,24 +219,51 @@ class kittiDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
 
-        img_filename = self.source_imgs[index]
-        lidar_filename = self.lidar_files[index]
-        depth_gt = self.data_ann_files[index]
+        img_filename = self.source_imgs[index] # rgb image
+        lidar_filename = self.lidar_files[index] # lidar pointcloud
 
-        calib_velo2cam = read_calib_file(self.calib_velo2cam)
-        calib_cam2cam = read_calib_file(self.calib_cam2cam)
+        # velo_2d_filename = self.data_velo_files[index] # 2d lidar points, sparse depth
+        sparse_depth_gt = self.data_ann_files[index] # semi dense depth map
+
+        calib_velo2cam = read_calib_file(self.calib_velo2cam) # projection mat
+        calib_cam2cam = read_calib_file(self.calib_cam2cam) # projection mat
 
         img = Image.open(img_filename)
-        gt_img = Image.open(depth_gt)
-
-        gt_img = torch.from_numpy(np.array(gt_img, dtype=int).astype(np.float)/256)
-
-        # print(torch.max(gt_img_tensor), torch.min(gt_img_tensor))
-
-        pc_velo = load_velo_scan(lidar_filename)[:, :3]
-
+        sparse_depth_gt = Image.open(sparse_depth_gt)
+        # velo_2d = Image.open(velo_2d_filename)
         # img width and height
         (img_width, img_height) = (img.width, img.height)
+
+        
+
+        if self.transforms is not None:
+            img = self.transforms(crop=True)(img)
+            sparse_depth_gt = self.transforms(crop=True)(sparse_depth_gt)
+        
+       
+        ##------------------------
+        # input_image = cv2.imread(img_filename, cv2.IMREAD_COLOR)  # uint8 image
+        # input_image = cv2.normalize(input_image, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+
+        sparse_depth_gt = np.array(sparse_depth_gt, dtype=int).astype(np.float)/256
+
+        # # # print("rgb", norm_image)
+        # # # print("gt_input", np.max(gt_input), np.min(gt_input))
+        # dense_depth_gt = fill_depth_colorization(input_image, velo_2d)
+
+        # dense_depth_gt = torch.from_numpy(dense_depth_gt)
+        ##-------------------
+        # sparse_depth_gt = np.array(sparse_depth_gt, dtype=int).astype(np.float)/256
+        sparse_depth_gt = torch.from_numpy(sparse_depth_gt)
+        sparse_depth_gt.requires_grad_(True)
+        ##-----------------------------
+
+        pc_velo = load_velo_scan(lidar_filename)[:, :3]
+        # print("pc_velo", pc_velo.shape)
+        
+        
+        
+
 
         # projection matrix (project from velo2cam2)
         proj_velo2cam2 = full_project_velo_to_cam2(
@@ -239,75 +271,103 @@ class kittiDataset(torch.utils.data.Dataset):
 
         # apply projection
         pts_2d = project_to_image(pc_velo.transpose(), proj_velo2cam2)
+        
+        # crop boundaries 
+        upper = np.ceil((img_height - config_kitti.CROP_OUTPUT_SIZE[0])/2)
+        lower = np.floor((img_height - config_kitti.CROP_OUTPUT_SIZE[0])/2) + config_kitti.CROP_OUTPUT_SIZE[0]
 
-        # Filter lidar points to be within image FOV
-        inds = np.where((pts_2d[0, :] < img_width) & (pts_2d[0, :] >= 0) &
-                        (pts_2d[1, :] < img_height) & (pts_2d[1, :] >= 0) &
+        left = np.ceil((img_width - config_kitti.CROP_OUTPUT_SIZE[1])/2)
+        right = np.floor((img_width - config_kitti.CROP_OUTPUT_SIZE[1])/2) + config_kitti.CROP_OUTPUT_SIZE[1]
+
+        inds = np.where((pts_2d[0, :] < right - 1) & (pts_2d[0, :] > left + 1) & (pts_2d[0, :] >= 0) &
+                        (pts_2d[1, :] < lower - 1) & (pts_2d[1, :] > upper + 1) & (pts_2d[1, :] >= 0) &
                         (pc_velo[:, 0] > 0)
                         )[0]
 
+        # move to origin
+        pts_2d[0,:] = pts_2d[0,:] - left
+        pts_2d[1,:] = pts_2d[1,:] - upper
+
         # Filter out pixels points
-        imgfov_pc_pixel = pts_2d[:, inds]
+        imgfov_pc_pixel = pts_2d[:, inds] # pointcloud2pixels
 
         # Retrieve depth from lidar
-        imgfov_pc_velo = pc_velo[inds, :]
-        imgfov_pc_velo = np.hstack(
-            (imgfov_pc_velo, np.ones((imgfov_pc_velo.shape[0], 1))))
-        imgfov_pc_cam2 = proj_velo2cam2 @ imgfov_pc_velo.transpose()
+        imgfov_pc_velo = pc_velo[inds, :] # Lidar points within field of view
+        imgfov_pc_velo_homo = np.hstack((imgfov_pc_velo, np.ones((imgfov_pc_velo.shape[0], 1)))) #homogeneous coords
+        imgfov_pc_cam2 = proj_velo2cam2 @ imgfov_pc_velo_homo.transpose() # Lidar projected to cam2
+        
+        # print("imgfov_pc_velo", imgfov_pc_velo[:, 0].max(), imgfov_pc_velo[:, 0].min())
+        # fig = plt.figure(4)
+        # # ax = plt.axes(projection="3d")
+        # ax = plt.axes(projection='3d')
+
+        # ax.set_xlabel("X")
+        # ax.set_ylabel("Y")
+        # ax.set_zlabel("Z")
+        # x_data = imgfov_pc_velo[:, 0]
+        # y_data = imgfov_pc_velo[:, 1]
+        # z_data = imgfov_pc_velo[:, 2]
+        # ax.scatter3D(x_data, y_data, z_data, cmap='Greens', s=1)
+        # plt.show()
+
+        
 
         # visualize
-        # self.visualize_projection(img_filename, imgfov_pc_pixel, imgfov_pc_cam2)
+        # self.visualize_projection(img_filename, imgfov_pc_pixel, imgfov_pc_cam2, upper, lower, left, right)
 
-        # gt_img_rgb = cv2.cvtColor(cv2.imread(depth_gt), cv2.COLOR_BGR2RGB)
-        # plt.imshow(gt_img_rgb)
-        # print('gt_rgb')
-        # plt.show()
-        # to return
         imPts = torch.tensor(
-            imgfov_pc_pixel, dtype=torch.float).permute(1, 0)  # N x 2
-        imPts = torch.floor(imPts*config_kitti.RESIZE).long()  # N x 2 resized
+            imgfov_pc_pixel, dtype=torch.long).permute(1, 0)  # N x 2
 
         lidar_fov = torch.tensor(
-            imgfov_pc_cam2, dtype=torch.float).permute(1, 0)  # N x 3
+            imgfov_pc_velo, dtype=torch.float)  # N x 3
 
+        # print(lidar_fov.shape, imgfov_pc_velo_homo.shape)
         # remove duplicate
-        imPts, lidar_fov = self.pre_process_points(imPts, lidar_fov)
+        # print(lidar_fov.shape)
+        imPts, lidar_fov, imgfov_pc_cam2 = self.pre_process_points(imPts, lidar_fov, imgfov_pc_cam2)
 
         # print(imPts.shape)
         
-        if self.transforms is not None:
-            img = self.transforms(resize=True)(img)
-            # gt_img = self.transforms(resize=False, normalize=True)(gt_img)
-            # print(img.shape, gt_img.shape)
-            # # print(torch.max(gt_img), gt_img.min())
-            # plt.imshow(gt_img.permute(1,2,0))
-            # print('gt_torch')
-            # plt.show()
+        # if self.transforms is not None:
+        #     img = self.transforms(resize=True)(img)
 
-            # plt.imshow(img.permute(1,2,0))
-            # print('im_torch')
-            # plt.show()
 
         mask = torch.zeros(img.shape[1:], dtype=torch.bool)
-        # print(mask.shape)
-        # mask = torch.zeros_like(img[0,:,:].squeeze_(0), dtype=torch.bool)
-        sparse_depth = torch.zeros_like(img[0,:,:].unsqueeze_(0))
+        # # print(mask.shape)
+        # # mask = torch.zeros_like(img[0,:,:].squeeze_(0), dtype=torch.bool)
+        sparse_depth = torch.zeros_like(img[0,:,:].unsqueeze_(0), dtype=torch.float)
 
         mask[imPts[:,1], imPts[:,0]] = True
-        sparse_depth[0, imPts[:, 1], imPts[:, 0]] = lidar_fov[:, 2]
+        sparse_depth[0, imPts[:, 1], imPts[:, 0]] = torch.tensor(imgfov_pc_cam2[2, :], dtype=torch.float)
+
+        # print(lidar_fov[:, 0].max(), lidar_fov[:, 0].min())
+        
+
+        # ## TODO: Try not upsampling gt 
+        # print(gt_img.unsqueeze_(0).shape)
+        # gt_img = F.interpolate(gt_img.unsqueeze_(0), mask.shape)
         
         # plt.imshow(mask)
         # print('mask')
         # plt.show()
 
         # plt.imshow(sparse_depth.permute(1,2,0))
-        # print('sparse_depth')
+        # print('sparse_depth', sparse_depth.shape, sparse_depth.max(), sparse_depth.min())
         # plt.show()
 
+
+        # plt.imshow(sparse_depth_gt.permute(1,2,0))
+        # print('sparse_depth_gt', sparse_depth_gt.shape, sparse_depth_gt.max(), sparse_depth_gt.min())
+        # plt.show()
         k_nn_indices = self.find_k_nearest(lidar_fov)
+        # print(img.shape, lidar_fov.shape, mask.shape, sparse_depth.shape, k_nn_indices.shape, sparse_depth_gt.shape)
         # print("max", torch.max(gt_img), torch.min(gt_img), gt_img.shape)
         # print(img.shape, imPts.shape, lidar_fov.shape, mask.shape, sparse_depth.shape, k_nn_indices.shape, gt_img.shape)
-        return img, imPts, lidar_fov, mask, sparse_depth, k_nn_indices, gt_img
+        # return img, imPts, lidar_fov, mask, sparse_depth, k_nn_indices, gt_img
+
+        
+        return img, lidar_fov, mask, sparse_depth, k_nn_indices, sparse_depth_gt
+        
 
     def __len__(self):
         return len(self.source_imgs)
@@ -315,13 +375,16 @@ class kittiDataset(torch.utils.data.Dataset):
 
 
 
-def get_transform(resize=True, normalize=False):
+def get_transform(resize=False, normalize=False, crop=False):
     new_size = tuple(np.ceil(x*config_kitti.RESIZE)
                      for x in config_kitti.ORIGINAL_INPUT_SIZE_HW)
     new_size = tuple(int(x) for x in new_size)
     custom_transforms = []
     if resize:
         custom_transforms.append(transforms.Resize(new_size))   
+
+    if crop:
+        custom_transforms.append(transforms.CenterCrop(config_kitti.CROP_OUTPUT_SIZE))
 
     custom_transforms.append(transforms.ToTensor())
     # custom_transforms.append(transforms.Lambda(lambda image: torch.from_numpy(np.array(image).astype(np.float32)/255).unsqueeze(0)))
@@ -343,7 +406,7 @@ def get_transform(resize=True, normalize=False):
 #     __file__)), "..", config_kitti.DATA, "imgs/2011_09_26/calib_cam_to_cam.txt")
 
 # kitti_dataset = kittiDataset(imgs_root_train, data_depth_velodyne_root_train, data_depth_annotated_root_train, calib_velo2cam, calib_cam2cam, transforms=get_transform)
-# for i in range(500):
+# for i in range(50):
 
 #     kitti_dataset.__getitem__(np.random.randint(500))
 
@@ -382,14 +445,14 @@ def get_dataloaders(batch_size, imgs_root, data_depth_velodyne_root, data_depth_
         data_loader_train = torch.utils.data.DataLoader(train_set,
                                                         batch_size=batch_size,
                                                         shuffle=False,
-                                                        num_workers=4,
+                                                        num_workers=0,
                                                         collate_fn=collate_fn,
                                                         drop_last=True)
 
         data_loader_val = torch.utils.data.DataLoader(val_set,
                                                       batch_size=batch_size,
                                                       shuffle=False,
-                                                      num_workers=4,
+                                                      num_workers=0,
                                                       collate_fn=collate_fn,
                                                       drop_last=True)
         return data_loader_train, data_loader_val
@@ -402,19 +465,19 @@ def get_dataloaders(batch_size, imgs_root, data_depth_velodyne_root, data_depth_
 
         data_loader = torch.utils.data.DataLoader(dataset,
                                                   batch_size=batch_size,
-                                                  shuffle=False,
-                                                  num_workers=4,
+                                                  shuffle=True,
+                                                  num_workers=0,
                                                   collate_fn=collate_fn,
                                                   drop_last=True)
         return data_loader
 
 
 # imgs_root = os.path.join(os.path.dirname(os.path.abspath(
-#     __file__)), "../data_kitti/kitti_depth_completion_unmodified/imgs/2011_09_26/val/")
+#     __file__)), "../data_kitti/kitti_depth_completion_unmodified/imgs/2011_09_26/train/")
 # data_depth_velodyne_root = os.path.join(os.path.dirname(os.path.abspath(
-#     __file__)), "../data_kitti/kitti_depth_completion_unmodified/data_depth_velodyne/val/")
+#     __file__)), "../data_kitti/kitti_depth_completion_unmodified/data_depth_velodyne/train/")
 # data_depth_annotated_root = os.path.join(os.path.dirname(os.path.abspath(
-#     __file__)), "../data_kitti/kitti_depth_completion_unmodified/data_depth_annotated/val/")
+#     __file__)), "../data_kitti/kitti_depth_completion_unmodified/data_depth_annotated/train/")
 
 # calib_velo2cam = calib_filename = os.path.join(os.path.dirname(os.path.abspath(
 #     __file__)), "../data_kitti/kitti_depth_completion_unmodified/imgs/2011_09_26/calib_velo_to_cam.txt")
@@ -437,4 +500,10 @@ def get_dataloaders(batch_size, imgs_root, data_depth_velodyne_root, data_depth_
 
 
 
-# print(img[0].shape, imPts[0].shape, lidar_fov[0].shape, mask[0].shape, sparse_depth[0].shape, k_nn_indices[0].shape, gt_img[0].shape)
+
+# for inputs in kitti_data_loader:
+
+#     img, imPts, lidar_fov, mask, sparse_depth, k_nn_indices, gt_img = inputs
+    
+
+#     print(img[0].shape, imPts[0].shape, lidar_fov[0].shape, mask[0].shape, sparse_depth[0].shape, k_nn_indices[0].shape, gt_img[0].shape)
