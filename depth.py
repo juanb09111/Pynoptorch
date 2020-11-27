@@ -102,8 +102,10 @@ if __name__ == "__main__":
 
             sparse_depth[i, 0, imPts[i, :, 1], imPts[i, :, 0]] = lidar_data_fov[i, :, 2]
 
-        # plt.imshow(mask[0].cpu().numpy())
-        # plt.show()
+            print(torch.max(sparse_depth))
+
+        plt.imshow(sparse_depth[0,0].cpu().numpy())
+        plt.show()
         # tensor lidar imgs        
         lidar_imgs = tensorize_batch(lidar_imgs, device=device)
 

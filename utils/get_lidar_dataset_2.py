@@ -128,7 +128,8 @@ class myOwnDataset(torch.utils.data.Dataset):
 
         dummy_img = "img.png"
         lidar_img_filename = os.path.join(self.lidar_root, dummy_img)
-        lidar_img = cv2.cvtColor(cv2.imread(lidar_img_filename), cv2.COLOR_BGR2RGB)
+        lidar_img = Image.open(lidar_img_filename)
+        # lidar_img_cv2 = cv2.cvtColor(cv2.imread(lidar_img_filename), cv2.COLOR_BGR2RGB)
         
         lidar_fov_filename = "lidar_fov.mat"
         lidar_fov_path = os.path.join(self.lidar_root, lidar_fov_filename)
@@ -140,16 +141,18 @@ class myOwnDataset(torch.utils.data.Dataset):
         imPts = scipy.io.loadmat(imPts_path)["imPts"] # N x 2
         imPts = torch.tensor(imPts, dtype=torch.float) # N x 2
 
-        my_annotation["lidar_img"] = lidar_img
-        my_annotation["lidar_fov"] = lidar_fov 
-        my_annotation["imPts"] = imPts 
+        imPts = torch.floor(imPts*config.RESIZE) # N x 2 resized
+
+        # my_annotation["lidar_img_cv2"] = lidar_img_cv2
+        # my_annotation["lidar_fov"] = lidar_fov 
+        # my_annotation["imPts_original"] = imPts 
 
         if self.semantic_masks_folder is not None:
             semantic_mask = torch.as_tensor(semantic_mask, dtype=torch.uint8)
             my_annotation["semantic_mask"] = semantic_mask
 
         if self.transforms is not None:
-            # my_annotation["lidar_img"] = self.transforms(lidar_img)
+            lidar_img = self.transforms(lidar_img)
             img = self.transforms(img)
 
         return img, my_annotation, lidar_img, lidar_fov, imPts
@@ -159,7 +162,10 @@ class myOwnDataset(torch.utils.data.Dataset):
 
 
 def get_transform():
+    new_size = tuple(np.ceil(x*config.RESIZE) for x in config.ORIGINAL_INPUT_SIZE_HW)
+    new_size = tuple(int(x) for x in new_size)
     custom_transforms = []
+    custom_transforms.append(transforms.Resize(new_size))
     custom_transforms.append(transforms.ToTensor())
     return transforms.Compose(custom_transforms)
 
