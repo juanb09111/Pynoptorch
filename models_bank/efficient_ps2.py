@@ -5,11 +5,22 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import torchvision
-
+from backbones_bank.efficient_net_map import efficient_net_map as eff_net
 import config
 import temp_variables
 from backbones_bank.tunned_maskrcnn.mask_rcnn import MaskRCNN, maskrcnn_resnet50_fpn
 
+
+def map_backbone(backbone_net_name, original_aspect_ratio=None):
+    if "EfficientNetB" in backbone_net_name:
+        if original_aspect_ratio is None:
+            raise AssertionError("original_aspect_ratio is required")
+        else:
+            return eff_net(backbone_net_name, original_aspect_ratio)
+    elif backbone_net_name == "resnet50":
+        return None
+    else:
+        return None
 
 class EfficientPS2(nn.Module):
     def __init__(self, backbone_net_name,
@@ -19,8 +30,13 @@ class EfficientPS2(nn.Module):
                  min_size=800, max_size=1333):
         super(EfficientPS2, self).__init__()
 
+
+        original_aspect_ratio = original_image_size[0]/original_image_size[1]
+
+        backbone = map_backbone(backbone_net_name, original_aspect_ratio=original_aspect_ratio)
+
         self.mask_rcnn = maskrcnn_resnet50_fpn(
-            pretrained=False, num_classes=num_ins_classes + 1, min_size=min_size, max_size=max_size)
+            pretrained=False, backbone=backbone, num_classes=num_ins_classes + 1, min_size=min_size, max_size=max_size)
 
         self.semantic_head = sem_seg_head(
             backbone_out_channels,
