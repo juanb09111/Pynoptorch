@@ -21,10 +21,10 @@ class ContinuousConvolution(nn.Module):
         self.mlp = nn.Sequential(
             # input: B x N x 3 x K
             nn.Linear(3 * k_number, (n_feat // 2) * k_number),  # B x N x 3*(n_feat//2)
-            nn.BatchNorm1d(n_number),  # B x N(normalize this dim) x 3*(n_feat//2)
+            nn.BatchNorm1d(n_number, track_running_stats=False),  # B x N(normalize this dim) x 3*(n_feat//2)
             nn.ReLU(),
             nn.Linear((n_feat // 2) * k_number, n_feat * k_number),  # B x N x n_feat*k_number
-            nn.BatchNorm1d(n_number),  # B x N(again, norm this dim) x n_feat*k_number
+            nn.BatchNorm1d(n_number, track_running_stats=False),  # B x N(again, norm this dim) x n_feat*k_number
             nn.ReLU()
         )
 
@@ -40,7 +40,7 @@ class ContinuousConvolution(nn.Module):
         B, N, C = x.size()
         K = indices.size(2)
 
-        
+
 
         y1 = torch.cat([points[i, indices[i]] for i in range(B)], dim=0)
         y1 = y1.view(B,N,K,3)  # B x N x K x 3

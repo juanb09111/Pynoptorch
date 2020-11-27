@@ -7,7 +7,7 @@ from common_blocks.depth_wise_sep_conv import depth_wise_sep_conv
 from common_blocks.continuous_conv import ContinuousConvolution
 import temp_variables
 import config_kitti
-
+import matplotlib.pyplot as plt
 
 class Two_D_Branch(nn.Module):
     def __init__(self, backbone_out_channels):
@@ -109,7 +109,7 @@ class FuseBlock(nn.Module):
 
 class FuseNet(nn.Module):
     def __init__(self, k_number, n_number):
-        super().__init__()
+        super(FuseNet, self).__init__()
 
         self.sparse_conv = nn.Sequential(
             nn.Conv2d(in_channels=1, out_channels=16, kernel_size=3, stride=2, padding=1),
@@ -155,7 +155,7 @@ class FuseNet(nn.Module):
         
 
 
-    def forward(self, img, sparse_depth, mask, coors, k_nn_indices, gt_img):
+    def forward(self, img, sparse_depth, mask, coors, k_nn_indices, sparse_depth_gt):
         """
         inputs:
         img: input rgb (B x 3 x H x W)
@@ -168,6 +168,8 @@ class FuseNet(nn.Module):
         depth: completed depth
         """
         
+
+
         _, H, W = mask.shape
 
         # sparse depth branch
@@ -185,17 +187,61 @@ class FuseNet(nn.Module):
 
         out = self.output_layer(fused)
 
-        if self.training:
-            out_original_size = F.interpolate(out, config_kitti.ORIGINAL_INPUT_SIZE_HW).squeeze_(1)
-            # print("out", torch.max(out_original_size), torch.min(out_original_size))
-            # print("gt_img", torch.max(gt_img), torch.min(gt_img))
-            l2 = F.mse_loss(out_original_size, gt_img)
-            # l1 = F.smooth_l1_loss(out_original_size, gt_img)
+        out = out.squeeze_(1)
 
-            # total_loss = l2 + l1*torch.tensor((config_kitti.LOSS_ALPHA), device=temp_variables.DEVICE)
+        # if self.training:
+            
 
-            losses = {"depth_loss": l2}
+        # print("training", out.max(), out.min())
+        mask_gt = torch.where(sparse_depth_gt > 0, torch.tensor((1), device=temp_variables.DEVICE, dtype=torch.float64), torch.tensor((0), device=temp_variables.DEVICE, dtype=torch.float64))
+        mask_gt = mask_gt.squeeze_(1)
+        mask_gt.requires_grad_(True)
 
-            return losses
+
         
-        return self.output_layer(fused)
+        sparse_depth_gt = sparse_depth_gt.squeeze_(1) # remove C dimension there's only one
+        
+
+        # print(out.shape, sparse_depth_gt.shape, mask_gt.shape)
+        
+        loss = F.mse_loss(out*mask_gt, sparse_depth_gt*mask_gt)
+
+        
+        # out_copy = out[0]
+        # plt.imshow(out_copy.cpu().detach().numpy())
+        # print('out_copy')
+        # plt.show()
+
+
+        # print(out.max(), out.min())
+
+        # img_copy = img[0].permute(1,2,0)
+        # plt.imshow(img_copy.cpu().detach().numpy())
+        # print('img')
+        # plt.show()
+
+        # sparse_depth_gt_copy = sparse_depth_gt[0]
+        # print("shape", sparse_depth_gt_copy.cpu().detach().numpy().shape)
+        # plt.imshow(sparse_depth_gt_copy.cpu().detach().numpy())
+        # print('sparse_depth_gt_copy')
+        # plt.show()
+
+
+        # l1 = F.smooth_l1_loss(out_original_size, gt_img)
+
+        # total_loss = l2 + l1*torch.tensor((config_kitti.LOSS_ALPHA), device=temp_variables.DEVICE)
+        # print("eval", out.min(), out.max())
+        # losses = {"depth_loss": l1}
+        losses = {"depth_loss": loss}
+
+        # out_copy = out[0].squeeze(0)  
+        # plt.imshow(out_copy.cpu().detach().numpy())
+        # print('mask')
+        # plt.show()
+        # print("eval", out.min(), out.max())
+#     return out
+
+        return losses, out
+
+        # else:
+        #

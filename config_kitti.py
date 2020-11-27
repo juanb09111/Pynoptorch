@@ -21,6 +21,8 @@ DATA = "data_kitti/kitti_depth_completion_unmodified/"
 
 MAX_EPOCHS = 100
 
+MAX_TRAINING_SAMPLES = 800
+
 # If USE_PREEXISTING_DATA_LOADERS is True new data_loaders will not be written
 USE_PREEXISTING_DATA_LOADERS = False
 DATA_LOADER_TRAIN_FILANME = "tmp/data_loaders/kitti_data_loader_train.pth"
@@ -30,7 +32,7 @@ DATA_LOADER_VAL_FILENAME = "tmp/data_loaders/kitti_data_loader_val.pth"
 # --------EVALUATION---------------
 
 # Set the model weights to be used for evaluation
-MODEL_WEIGHTS_FILENAME = "tmp/models/FuseNet_weights_loss_0.5556591153144836.pth"
+MODEL_WEIGHTS_FILENAME = "tmp/models/FuseNet_weights_loss_0.6830431589510283.pth"
 
 # Set the data loader to be used for evaluation. This can be set to None to use default filename
 DATA_LOADER = None

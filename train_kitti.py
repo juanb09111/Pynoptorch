@@ -18,10 +18,12 @@ import constants
 import models
 from utils import map_hasty
 from utils import get_splits
+import matplotlib.pyplot as plt
 
 
 # %%
 writer = SummaryWriter()
+
 
 def __update_model(trainer_engine, batch):
     model.train()
@@ -29,7 +31,6 @@ def __update_model(trainer_engine, batch):
 
     imgs, lidar_fov, masks, sparse_depth, k_nn_indices, sparse_depth_gt = batch
     # imgs, annotations = batch[0], batch[1]
-    
 
     imgs = list(img for img in imgs)
     lidar_fov = list(lid_fov for lid_fov in lidar_fov)
@@ -37,36 +38,30 @@ def __update_model(trainer_engine, batch):
     sparse_depth = list(sd for sd in sparse_depth)
     k_nn_indices = list(k_nn for k_nn in k_nn_indices)
     sparse_depth_gt = list(sp_d for sp_d in sparse_depth_gt)
-    
-    
+
     imgs = tensorize_batch(imgs, device)
     lidar_fov = tensorize_batch(lidar_fov, device, dtype=torch.float)
     masks = tensorize_batch(masks, device, dtype=torch.bool)
     sparse_depth = tensorize_batch(sparse_depth, device)
     k_nn_indices = tensorize_batch(k_nn_indices, device, dtype=torch.long)
-    sparse_depth_gt = tensorize_batch(sparse_depth_gt, device, dtype=torch.float)
-    
-    
-    loss_dict = model(imgs, sparse_depth, masks, lidar_fov, k_nn_indices, sparse_depth_gt)
-    
+    sparse_depth_gt = tensorize_batch(
+        sparse_depth_gt, device, dtype=torch.float)
+
+    loss_dict, _ = model(imgs, sparse_depth, masks, lidar_fov,
+                      k_nn_indices, sparse_depth_gt)
+
     losses = sum(loss for loss in loss_dict.values())
 
     i = trainer_engine.state.iteration
     writer.add_scalar("Loss/train/iteration", losses, i)
-    
+
     losses.backward()
 
     # nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0, norm_type=2)
 
-    
-
     optimizer.step()
 
-    
-    
-
     return losses
-    
 
 
 # %% Define Event listeners
@@ -74,11 +69,10 @@ def __update_model(trainer_engine, batch):
 
 def __log_training_loss(trainer_engine):
 
-    current_lr = None 
+    current_lr = None
 
     for param_group in optimizer.param_groups:
         current_lr = param_group['lr']
-        
 
     batch_loss = trainer_engine.state.output
     state_epoch = trainer_engine.state.epoch
@@ -90,9 +84,7 @@ def __log_training_loss(trainer_engine):
     sys.stdout = open(train_res_file, 'a+')
     print(text)
 
-    writer.add_scalar("LR/train/iteration", current_lr, i)
-
-    
+    # writer.add_scalar("LR/train/iteration", current_lr, i)
 
 
 def __log_validation_results(trainer_engine):
@@ -114,8 +106,54 @@ def __log_validation_results(trainer_engine):
     writer.add_scalar("Loss/train/epoch", batch_loss, state_epoch)
 
     scheduler.step()
+    
+    with torch.no_grad():
 
-    torch.cuda.empty_cache()
+        model.eval()
+        # torch.cuda.empty_cache()
+        for imgs, lidar_fov, masks, sparse_depth, k_nn_indices, sparse_depth_gt in data_loader_train:
+
+
+        # imgs, lidar_fov, masks, sparse_depth, k_nn_indices, sparse_depth_gt = next(
+        #     iter(data_loader_train))
+
+            imgs = list(img for img in imgs)
+            lidar_fov = list(lid_fov for lid_fov in lidar_fov)
+            masks = list(mask for mask in masks)
+            sparse_depth = list(sd for sd in sparse_depth)
+            k_nn_indices = list(k_nn for k_nn in k_nn_indices)
+            sparse_depth_gt = list(sp_d for sp_d in sparse_depth_gt)
+
+            imgs = tensorize_batch(imgs, device)
+            lidar_fov = tensorize_batch(lidar_fov, device, dtype=torch.float)
+            masks = tensorize_batch(masks, device, dtype=torch.bool)
+            sparse_depth = tensorize_batch(sparse_depth, device)
+            k_nn_indices = tensorize_batch(k_nn_indices, device, dtype=torch.long)
+            sparse_depth_gt = tensorize_batch(
+                sparse_depth_gt, device, dtype=torch.float)
+
+
+
+            _, outputs = model(imgs, sparse_depth, masks,
+                            lidar_fov, k_nn_indices, sparse_depth_gt)
+            
+
+            for idx in range(outputs.shape[0]):
+                
+                out = outputs[idx].cpu().numpy()
+
+                # plt.imshow(out)
+                
+                # plt.show()
+
+                img = imgs[idx]
+                sparse_depth_gt_sample = sparse_depth_gt[idx].cpu().numpy()
+
+                writer.add_image("eval/src_img", img, state_epoch, dataformats="CHW")
+                writer.add_image("eval/gt", sparse_depth_gt_sample, state_epoch, dataformats="HW")
+                writer.add_image("eval/out", out, state_epoch, dataformats="HW")
+            
+            break
 
 
 if __name__ == "__main__":
@@ -143,13 +181,12 @@ if __name__ == "__main__":
     # Define params
     params = [p for p in model.parameters() if p.requires_grad]
 
-    
     # optimizer = torch.optim.SGD(
     #     params, lr=0.005, momentum=0.9, weight_decay=0.00005)
 
     optimizer = torch.optim.SGD(
         params, lr=0.0016, momentum=0.9, weight_decay=0.00005)
-    
+
     # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[65, 80, 85, 90], gamma=0.1)
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
 
@@ -187,7 +224,7 @@ if __name__ == "__main__":
                                             data_depth_velodyne_root=data_depth_velodyne_root_train,
                                             data_depth_annotated_root=data_depth_annotated_root_train,
                                             calib_velo2cam=calib_velo2cam,
-                                            calib_cam2cam=calib_cam2cam)
+                                            calib_cam2cam=calib_cam2cam, n_samples=config_kitti.MAX_TRAINING_SAMPLES)
 
         data_loader_val = get_dataloaders(batch_size=config_kitti.BATCH_SIZE,
                                           imgs_root=imgs_root_val,
@@ -205,12 +242,6 @@ if __name__ == "__main__":
 
         torch.save(data_loader_train, data_loader_train_filename)
         torch.save(data_loader_val, data_loader_val_filename)
-
-
-    
-    # epoch_len = len(data_loader_train)
-    # scheduler = PiecewiseLinear(optimizer, "lr",
-    #                         milestones_values=[(65*epoch_len, 0.1), (80*epoch_len, 0.1), (85*epoch_len, 0.1), (90*epoch_len, 0.1)])
     scheduler = MultiStepLR(optimizer, milestones=[65, 80, 85, 90], gamma=0.1)
     ignite_engine = Engine(__update_model)
 
