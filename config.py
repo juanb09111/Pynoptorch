@@ -1,5 +1,5 @@
 # All dirs relative to root
-NUM_CLASSES = 8 #including background
+NUM_CLASSES = 10 #including background
 
 BATCH_SIZE = 2
 MODEL = "EfficientPS"
@@ -7,22 +7,25 @@ MODEL_WEIGHTS_FILENAME_PREFIX = "EfficientPS_weights"
 
 BACKBONE = "resnet50" # This is the only one available at the moment
 BACKBONE_OUT_CHANNELS = 256
-NUM_THING_CLASSES = 6 #excluding background
-NUM_STUFF_CLASSES = 1 #excluding background
+NUM_THING_CLASSES = 7 #excluding background
+NUM_STUFF_CLASSES = 2 #excluding background
 
 # Object tracking
 MAX_DETECTIONS = 50 # Maximum number of tracked objects
 NUM_FRAMES = 5 # Number of frames before recycling the ids 
 
-ORIGINAL_INPUT_SIZE_HW = (1200, 1920) 
+ORIGINAL_INPUT_SIZE_HW = (1080, 1920) 
 
 MIN_SIZE = 800 # Taken from maskrcnn defaults  
 MAX_SIZE = 1333 # Taken from maskrcnn defaults 
 
 
-DATA = "data/"
-SEMANTIC_SEGMENTATION_DATA = "semantic_segmentation_data"
-MAX_EPOCHS = 50
+# DATA = "data/"
+DATA = "random_left/"
+# SEMANTIC_SEGMENTATION_DATA = "semantic_segmentation_data"
+SEMANTIC_SEGMENTATION_DATA = "semantic_masks_21_12"
+SEMANTIC_MASKS_FORMAT = ".png"
+MAX_EPOCHS = 100
 
 
 # If USE_PREEXISTING_DATA_LOADERS is True new data_loaders will not be written
@@ -41,7 +44,8 @@ AUTOMATICALLY_SPLIT_SETS = True
 SPLITS = {"VAL_SIZE": 0.157}
 
 # HASTY_COCO_ANN  is the coco ann file exported by hasty
-HASTY_COCO_ANN = "coco_hasty_annotations.json"
+# HASTY_COCO_ANN = "coco_hasty_annotations.json"
+HASTY_COCO_ANN = "ann_21_12.json"
 
 # COCO_ANN_TRAIN and COCO_ANN_VAL are created and saved automatically according to
 # constants.COCO_ANN_LOC/constants.ANN_TRAIN_DEFAULT_NAME
@@ -51,6 +55,8 @@ HASTY_COCO_ANN = "coco_hasty_annotations.json"
 COCO_ANN_TRAIN = None
 COCO_ANN_VAL = None
 
+# CHECKPOINT =  "tmp/models/EfficientPS_weights_resnet50_loss_0.9881418943405151.pth"
+CHECKPOINT = None
 # --------EVALUATION---------------
 
 # Set the model weights to be used for evaluation

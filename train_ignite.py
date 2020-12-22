@@ -89,6 +89,11 @@ if __name__ == "__main__":
 
     # Get model according to config
     model = models.get_model()
+
+    if config.CHECKPOINT:
+        print("Loading weights from: ", config.CHECKPOINT)
+        model.load_state_dict(torch.load(config.CHECKPOINT))
+        
     # move model to the right device
     model.to(device)
 
