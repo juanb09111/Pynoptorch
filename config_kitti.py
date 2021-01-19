@@ -11,8 +11,8 @@ CROP_OUTPUT_SIZE = (200, 1000)
 # for k-nn
 K_NUMBER = 9
 # number of 3D points for the model
-N_NUMBER = 8000
-
+# N_NUMBER = 8000
+N_NUMBER = 4000
 # alpha parameter for loss calculation
 LOSS_ALPHA = 0.8
 
@@ -32,7 +32,8 @@ DATA_LOADER_VAL_FILENAME = "tmp/data_loaders/kitti_data_loader_val.pth"
 # --------EVALUATION---------------
 
 # Set the model weights to be used for evaluation
-MODEL_WEIGHTS_FILENAME = "tmp/models/FuseNet_weights_loss_0.11186084686504852.pth"
+# MODEL_WEIGHTS_FILENAME = "tmp/models/FuseNet_weights_loss_0.11186084686504852.pth"
+MODEL_WEIGHTS_FILENAME = "tmp/models/FuseNet_weights_loss_0.30936820443942586.pth"
 
 # Set the data loader to be used for evaluation. This can be set to None to use default filename
 DATA_LOADER = None
