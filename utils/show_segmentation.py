@@ -12,6 +12,19 @@ import time
 import torch.nn.functional as F
 
 
+sem_colors = [
+    [0/255, 0/255, 0/255],
+    [30/255, 95/255, 170/255],
+    [245/255, 208/255, 58/255],
+    [224/255, 67/255, 217/255],
+    [255/255, 255/255, 153/255],
+    [177/255, 89/255, 40/255],
+    [166/255, 3/255, 3/255],
+    [65/255, 117/255, 5/255],
+    [94/255, 245/255, 184/255],
+    [140/255, 190/255, 248/255]
+]
+
 def randRGB(seed=None):
     if seed is not None:
         random.seed(seed)
@@ -22,10 +35,14 @@ def randRGB(seed=None):
     return rgb
 
 
-def get_colors_palete(num_classes):
-    colors = [randRGB(i+5) for i in range(num_classes + 1)]
-    return colors
+# def get_colors_palete(num_classes):
+#     colors = [randRGB(i+5) for i in range(num_classes + 1)]
+#     return colors
 
+def get_colors_palete(num_classes):
+    # colors = [randRGB(i+5) for i in range(num_classes + 1)]
+    # return colors
+    return sem_colors
 
 def apply_instance_masks(image, masks, confidence, ids=None):
 

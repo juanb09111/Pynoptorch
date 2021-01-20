@@ -23,7 +23,7 @@ MAX_SIZE = 1333 # Taken from maskrcnn defaults
 # DATA = "data/"
 DATA = "random_left/"
 # SEMANTIC_SEGMENTATION_DATA = "semantic_segmentation_data"
-SEMANTIC_SEGMENTATION_DATA = "semantic_masks_21_12"
+SEMANTIC_SEGMENTATION_DATA = "semantic_masks_18_01"
 SEMANTIC_MASKS_FORMAT = ".png"
 MAX_EPOCHS = 100
 
@@ -45,7 +45,7 @@ SPLITS = {"VAL_SIZE": 0.157}
 
 # HASTY_COCO_ANN  is the coco ann file exported by hasty
 # HASTY_COCO_ANN = "coco_hasty_annotations.json"
-HASTY_COCO_ANN = "ann_21_12.json"
+HASTY_COCO_ANN = "ann_18_01.json"
 
 # COCO_ANN_TRAIN and COCO_ANN_VAL are created and saved automatically according to
 # constants.COCO_ANN_LOC/constants.ANN_TRAIN_DEFAULT_NAME
@@ -60,7 +60,9 @@ CHECKPOINT = None
 # --------EVALUATION---------------
 
 # Set the model weights to be used for evaluation
-MODEL_WEIGHTS_FILENAME = "tmp/models/EfficientPS_weights_resnet50_loss_0.5556591153144836.pth"
+# MODEL_WEIGHTS_FILENAME = "tmp/models/EfficientPS_weights_resnet50_loss_0.5556591153144836.pth"
+# MODEL_WEIGHTS_FILENAME = "tmp/models/EfficientPS_weights_resnet50_loss_0.8619731664657593.pth"
+MODEL_WEIGHTS_FILENAME = "tmp/models/EfficientPS_weights_resnet50_loss_0.4168185591697693.pth" # 370 samples
 
 # Set the data loader to be used for evaluation. This can be set to None to use default filename
 DATA_LOADER = None
@@ -71,8 +73,8 @@ IOU_TYPES = ["bbox", "segm"]
 TEST_DIR = "data_val/"
 
 INSTANCE =  False
-SEMANTIC =  False
-PANOPTIC =  True
+SEMANTIC =  True
+PANOPTIC =  False
 
 # -------- REAL TIME ------
 RT_INSTANCE =  False
