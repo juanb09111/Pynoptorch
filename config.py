@@ -76,6 +76,23 @@ INSTANCE =  False
 SEMANTIC =  True
 PANOPTIC =  False
 
+# Customize colors for semantic inference. The length of this array must be #classes + background. 
+# Defaults to None. If None colors are pseudo-randomnly selected. 
+# Check utils/show_segmentation.py for details
+SEM_COLORS = None
+# SEM_COLORS = [
+#     [0/255, 0/255, 0/255],
+#     [30/255, 95/255, 170/255],
+#     [245/255, 208/255, 58/255],
+#     [224/255, 67/255, 217/255],
+#     [255/255, 255/255, 153/255],
+#     [177/255, 89/255, 40/255],
+#     [166/255, 3/255, 3/255],
+#     [65/255, 117/255, 5/255],
+#     [94/255, 245/255, 184/255],
+#     [140/255, 190/255, 248/255]
+# ]
+
 # -------- REAL TIME ------
 RT_INSTANCE =  False
 RT_SEMANTIC =  False
