@@ -3,9 +3,11 @@ import os.path
 import sys
 from ignite.engine import Events, Engine
 import torch
+from torch.optim.lr_scheduler import StepLR
 from utils import get_datasets
 from utils.tensorize_batch import tensorize_batch
 from eval_coco import evaluate
+from torch.utils.tensorboard import SummaryWriter
 
 import config
 import temp_variables
@@ -15,10 +17,12 @@ from utils import map_hasty
 from utils import get_splits
 
 
+
 # %%
+writer = SummaryWriter()
 
 
-def __update_model(_, batch):
+def __update_model(trainer_engine, batch):
     model.train()
     optimizer.zero_grad()
     imgs, annotations = batch[0], batch[1]
@@ -30,6 +34,10 @@ def __update_model(_, batch):
                    for t in annotations]
     loss_dict = model(imgs, anns=annotations)
     losses = sum(loss for loss in loss_dict.values())
+
+    i = trainer_engine.state.iteration
+    writer.add_scalar("Loss/train/iteration", losses, i)
+
     losses.backward()
     optimizer.step()
 
@@ -69,6 +77,11 @@ def __log_validation_results(trainer_engine):
 
     evaluate(model=model, weights_file=weights_path,
              data_loader_val=data_loader_val_obj)
+    
+    writer.add_scalar("Loss/train/epoch", batch_loss, state_epoch)
+    
+    scheduler.step()
+
     torch.cuda.empty_cache()
 
 
@@ -95,8 +108,9 @@ if __name__ == "__main__":
     print(torch.cuda.memory_allocated(device=device))
     # Define params
     params = [p for p in model.parameters() if p.requires_grad]
+
     optimizer = torch.optim.SGD(
-        params, lr=0.005, momentum=0.9, weight_decay=0.0005)
+        params, lr=0.0016, momentum=0.9, weight_decay=0.0005)
 
     data_loader_train = None
     data_loader_val = None
@@ -170,6 +184,8 @@ if __name__ == "__main__":
         torch.save(data_loader_train, data_loader_train_filename)
         torch.save(data_loader_val, data_loader_val_filename)
         torch.save(data_loader_val_obj, data_loader_val_obj_filename)
+
+    scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
 
     ignite_engine = Engine(__update_model)
     ignite_engine.add_event_handler(

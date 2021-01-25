@@ -5,7 +5,19 @@ BATCH_SIZE = 2
 MODEL = "EfficientPS"
 MODEL_WEIGHTS_FILENAME_PREFIX = "EfficientPS_weights"
 
-BACKBONE = "resnet50" # This is the only one available at the moment
+## Available backbone networks are: 
+# "resnet50", 
+# "EfficientNetB0", 
+# "EfficientNetB1", 
+# "EfficientNetB2",
+# "EfficientNetB3", 
+# "EfficientNetB4", 
+# "EfficientNetB5", 
+# "EfficientNetB6"
+# "EfficientNetB7"
+# BACKBONE = "resnet50"
+BACKBONE = "EfficientNetB0"
+
 BACKBONE_OUT_CHANNELS = 256
 NUM_THING_CLASSES = 6 #excluding background
 NUM_STUFF_CLASSES = 1 #excluding background

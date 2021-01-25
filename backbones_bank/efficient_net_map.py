@@ -4,6 +4,8 @@ from torch import nn
 import torch.nn.functional as F
 import torchvision
 import math
+import collections
+import config
 from .efficient_net import EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, EfficientNetB5, EfficientNetB6, EfficientNetB7
 from .efficient_net import efficient_net as efficient_net
 
@@ -31,34 +33,36 @@ def efficient_map(net_name, original_aspect_ratio):
         raise AssertionError("Invalid backbones network. Modify config.BACKBONE in config.py")
 
 
-class efficient_ps_backbone(nn.Module):
+class efficient_net_map(nn.Module):
     def __init__(self, net_name, original_aspect_ratio):
         super().__init__()
 
         self.efficien_net = efficient_map(net_name, original_aspect_ratio)
 
+        self.out_channels = config.BACKBONE_OUT_CHANNELS
+
         self.P4 = nn.Sequential(
-            nn.Conv2d(in_channels=256, out_channels=256,
+            nn.Conv2d(in_channels=256, out_channels=config.BACKBONE_OUT_CHANNELS,
                       kernel_size=3, padding=3//2),
-            nn.BatchNorm2d(256)
+            nn.BatchNorm2d(config.BACKBONE_OUT_CHANNELS)
         )
 
         self.P8 = nn.Sequential(
-            nn.Conv2d(in_channels=256, out_channels=256,
+            nn.Conv2d(in_channels=256, out_channels=config.BACKBONE_OUT_CHANNELS,
                       kernel_size=3, padding=3//2),
-            nn.BatchNorm2d(256)
+            nn.BatchNorm2d(config.BACKBONE_OUT_CHANNELS)
         )
 
         self.P16 = nn.Sequential(
-            nn.Conv2d(in_channels=256, out_channels=256,
+            nn.Conv2d(in_channels=256, out_channels=config.BACKBONE_OUT_CHANNELS,
                       kernel_size=3, padding=3//2),
-            nn.BatchNorm2d(256)
+            nn.BatchNorm2d(config.BACKBONE_OUT_CHANNELS)
         )
 
         self.P32 = nn.Sequential(
-            nn.Conv2d(in_channels=256, out_channels=256,
+            nn.Conv2d(in_channels=256, out_channels=config.BACKBONE_OUT_CHANNELS,
                       kernel_size=3, padding=3//2),
-            nn.BatchNorm2d(256)
+            nn.BatchNorm2d(config.BACKBONE_OUT_CHANNELS)
         )
 
     def forward(self, x):
@@ -83,7 +87,16 @@ class efficient_ps_backbone(nn.Module):
         P8 = F.leaky_relu(self.P8(b_up3 + t_down2))
         P16 = F.leaky_relu(self.P16(b_up2 + t_down3))
         P32 = F.leaky_relu(self.P32(b_up1 + t_down4))
-        return P4, P8, P16, P32
+
+        output = collections.OrderedDict()
+
+        output['0'] = P4
+        output['1'] = P8
+        output['2'] = P16
+        output['3'] = P32
+
+        return output
+        # return P4, P8, P16, P32
 
 
 # images = torch.rand((2, 3, 1024, 2048))
