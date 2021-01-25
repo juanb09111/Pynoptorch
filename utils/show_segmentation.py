@@ -12,6 +12,7 @@ import time
 import torch.nn.functional as F
 
 
+
 def randRGB(seed=None):
     if seed is not None:
         random.seed(seed)
@@ -22,10 +23,14 @@ def randRGB(seed=None):
     return rgb
 
 
+
+
 def get_colors_palete(num_classes):
+    if (config.SEM_COLORS != None) and (len(config.SEM_COLORS >= num_classes + 1)):
+        return config.SEM_COLORS
+    
     colors = [randRGB(i+5) for i in range(num_classes + 1)]
     return colors
-
 
 def apply_instance_masks(image, masks, confidence, ids=None):
 

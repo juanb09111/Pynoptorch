@@ -69,23 +69,25 @@ def get_split(img_folder, output_file):
 
         for filename in dir_filenames:
             img = list(filter(lambda x, file_name=filename: x['file_name'] == file_name, images))
-            img_id = img[0]['id']
-            anns = list(filter(lambda x, image_id=img_id: x['image_id'] == image_id, annotations))
+            
+            if len(img) > 0:
+                img_id = img[0]['id']
+                anns = list(filter(lambda x, image_id=img_id: x['image_id'] == image_id, annotations))
 
-            # background annotations
-            anns_background = list(filter(lambda x: x['category_id'] in bg_categories_ids, anns))
-            if len(anns_background) > 0:
-                bg_dict['images'].append(img[0])
-                bg_dict['annotations'].extend(anns_background)
+                # background annotations
+                anns_background = list(filter(lambda x: x['category_id'] in bg_categories_ids, anns))
+                if len(anns_background) > 0:
+                    bg_dict['images'].append(img[0])
+                    bg_dict['annotations'].extend(anns_background)
 
-            # object annotations
-            anns_obj = list(filter(lambda x: x['category_id'] in obj_categories_ids, anns))
-            if len(anns_obj) > 0:
-                obj_dict['images'].append(img[0])
-                obj_dict['annotations'].extend(anns_obj)
+                # object annotations
+                anns_obj = list(filter(lambda x: x['category_id'] in obj_categories_ids, anns))
+                if len(anns_obj) > 0:
+                    obj_dict['images'].append(img[0])
+                    obj_dict['annotations'].extend(anns_obj)
 
-            new_dict['images'].append(img[0])
-            new_dict['annotations'].extend(anns)
+                new_dict['images'].append(img[0])
+                new_dict['annotations'].extend(anns)
 
         new_anns, bg_anns, obj_anns = __map_ann_ids(new_dict['annotations'], bg_dict['annotations'], obj_dict['annotations'])
         new_dict['annotations'] = new_anns
