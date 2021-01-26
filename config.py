@@ -15,8 +15,10 @@ MODEL_WEIGHTS_FILENAME_PREFIX = "EfficientPS_weights"
 # "EfficientNetB5", 
 # "EfficientNetB6"
 # "EfficientNetB7"
-# BACKBONE = "resnet50"
-BACKBONE = "EfficientNetB0"
+BACKBONE = "resnet50"
+# BACKBONE = "EfficientNetB0"
+
+SEMANTIC_HEAD_DEPTHWISE_CONV = False
 
 BACKBONE_OUT_CHANNELS = 256
 NUM_THING_CLASSES = 7 #excluding background
@@ -41,7 +43,7 @@ MAX_EPOCHS = 100
 
 
 # If USE_PREEXISTING_DATA_LOADERS is True new data_loaders will not be written
-USE_PREEXISTING_DATA_LOADERS = False
+USE_PREEXISTING_DATA_LOADERS = True
 DATA_LOADER_TRAIN_FILANME = "tmp/data_loaders/data_loader_train.pth"
 DATA_LOADER_VAL_FILENAME = "tmp/data_loaders/data_loader_val.pth"
 DATA_LOADER_VAL_FILENAME_OBJ = "tmp/data_loaders/data_loader_val_obj.pth"
@@ -50,7 +52,7 @@ DATA_LOADER_VAL_FILENAME_OBJ = "tmp/data_loaders/data_loader_val_obj.pth"
 # into val and train
 # Otherwise you have to split the data set manually into their respective folders:
 # constants.TRAIN_DIR and constants.VAL_DIR
-AUTOMATICALLY_SPLIT_SETS = True
+AUTOMATICALLY_SPLIT_SETS = False
 
 # Set the validation set size. This makes no difference if USE_PREEXISTING_DATA_LOADERS is True
 SPLITS = {"VAL_SIZE": 0.157}

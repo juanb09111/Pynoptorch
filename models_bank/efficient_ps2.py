@@ -22,6 +22,7 @@ def map_backbone(backbone_net_name, original_aspect_ratio=None):
     else:
         return None
 
+
 class EfficientPS2(nn.Module):
     def __init__(self, backbone_net_name,
                  backbone_out_channels,
@@ -30,17 +31,17 @@ class EfficientPS2(nn.Module):
                  min_size=800, max_size=1333):
         super(EfficientPS2, self).__init__()
 
-
         original_aspect_ratio = original_image_size[0]/original_image_size[1]
 
-        backbone = map_backbone(backbone_net_name, original_aspect_ratio=original_aspect_ratio)
+        backbone = map_backbone(
+            backbone_net_name, original_aspect_ratio=original_aspect_ratio)
 
         self.mask_rcnn = maskrcnn_resnet50_fpn(
             pretrained=False, backbone=backbone, num_classes=num_ins_classes + 1, min_size=min_size, max_size=max_size)
 
         self.semantic_head = sem_seg_head(
             backbone_out_channels,
-            num_ins_classes + num_sem_classes + 1, original_image_size)
+            num_ins_classes + num_sem_classes + 1, original_image_size, depthwise_conv=config.SEMANTIC_HEAD_DEPTHWISE_CONV)
 
         for module in self.children():
             if self.training:
@@ -75,7 +76,8 @@ class EfficientPS2(nn.Module):
             if semantic:
                 semantic_masks = list(
                     map(lambda ann: ann['semantic_mask'], anns))
-                semantic_masks = tensorize_batch(semantic_masks, temp_variables.DEVICE)
+                semantic_masks = tensorize_batch(
+                    semantic_masks, temp_variables.DEVICE)
 
                 losses["semantic_loss"] = F.cross_entropy(
                     semantic_logits, semantic_masks.long())

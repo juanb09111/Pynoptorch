@@ -122,11 +122,13 @@ if __name__ == "__main__":
     data_loader_val_obj = None
 
     if config.USE_PREEXISTING_DATA_LOADERS:
+        print("Using pre-existing dataloaders")
         data_loader_train = torch.load(config.DATA_LOADER_TRAIN_FILANME)
         data_loader_val = torch.load(config.DATA_LOADER_VAL_FILENAME)
         data_loader_val_obj = torch.load(config.DATA_LOADER_VAL_FILENAME_OBJ)
 
     else:
+        print("New dataloaders will be created")
         if config.AUTOMATICALLY_SPLIT_SETS:
             get_splits.get_splits()
 
