@@ -124,7 +124,9 @@ if __name__ == "__main__":
     if config.USE_PREEXISTING_DATA_LOADERS:
         print("Using pre-existing dataloaders")
         data_loader_train = torch.load(config.DATA_LOADER_TRAIN_FILANME)
+        print("Train set samples: ", len(data_loader_train)*config.BATCH_SIZE)
         data_loader_val = torch.load(config.DATA_LOADER_VAL_FILENAME)
+        print("Eval set samples: ", len(data_loader_val)*config.BATCH_SIZE)
         data_loader_val_obj = torch.load(config.DATA_LOADER_VAL_FILENAME_OBJ)
 
     else:
@@ -150,7 +152,7 @@ if __name__ == "__main__":
         config.COCO_ANN_VAL = val_ann_filename
         config.COCO_ANN_TRAIN = train_ann_filename
         # write annotations json files for every split
-        map_hasty.get_split(constants.TRAIN_DIR, train_ann_filename)
+        map_hasty.get_split(constants.TRAIN_DIR, train_ann_filename, aug_data_set_folder=config.AUGMENTED_DATA)
         map_hasty.get_split(constants.VAL_DIR, val_ann_filename)
 
         train_dir = os.path.join(os.path.dirname(
@@ -170,13 +172,13 @@ if __name__ == "__main__":
 
         # data loaders
         data_loader_train = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, train_dir, annotation=coco_ann_train, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
+            config.BATCH_SIZE, train_dir, annotation=coco_ann_train, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, aug_data_root=config.AUGMENTED_DATA)
 
         data_loader_val = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, val_dir, annotation=coco_ann_val, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
+            config.BATCH_SIZE, val_dir, annotation=coco_ann_val, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, is_val_set=False)
 
         data_loader_val_obj = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, val_dir, annotation=coco_ann_val_obj, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
+            config.BATCH_SIZE, val_dir, annotation=coco_ann_val_obj, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, is_val_set=False, aug_data_root=config.AUGMENTED_DATA)
 
         # save data loaders
         data_loader_train_filename = os.path.join(os.path.dirname(
@@ -192,6 +194,8 @@ if __name__ == "__main__":
         torch.save(data_loader_val, data_loader_val_filename)
         torch.save(data_loader_val_obj, data_loader_val_obj_filename)
 
+    print("Train set samples: ", len(data_loader_train)*config.BATCH_SIZE)
+    print("Eval set samples: ", len(data_loader_val)*config.BATCH_SIZE)
     scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
 
     ignite_engine = Engine(__update_model)
