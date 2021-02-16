@@ -16,9 +16,11 @@ MODEL_WEIGHTS_FILENAME_PREFIX = "EfficientPS_weights"
 # "EfficientNetB6"
 # "EfficientNetB7"
 BACKBONE = "resnet50"
-# BACKBONE = "EfficientNetB0"
+# BACKBONE = "EfficientNetB3"
 
-SEMANTIC_HEAD_DEPTHWISE_CONV = False
+BACKBONE_DEPTHWISE_CONV = True
+
+SEMANTIC_HEAD_DEPTHWISE_CONV = True
 
 BACKBONE_OUT_CHANNELS = 256
 NUM_THING_CLASSES = 7 #excluding background
