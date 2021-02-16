@@ -166,32 +166,33 @@ class testDataset(torch.utils.data.Dataset):
         return len(self.file_names_arr)
 
 
-def get_transform(val_set=False):
-    if val_set:
-        custom_transforms = []
-        custom_transforms.append(transforms.ToTensor())
-        return transforms.Compose(custom_transforms)
-    else:
+def get_transform(use_augmentation=False):
+    if use_augmentation:
         custom_transforms = []
         custom_transforms.append(transforms.RandomHorizontalFlip())
         custom_transforms.append(transforms.ToTensor())
         # custom_transforms.append(transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)))
         custom_transforms.append(transforms.RandomErasing())
         return transforms.Compose(custom_transforms)
+        
+    else:
+        custom_transforms = []
+        custom_transforms.append(transforms.ToTensor())
+        return transforms.Compose(custom_transforms)
 
 
 # create own Dataset
 
-def get_datasets(root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False, is_val_set=False, aug_data_root=None):
+def get_datasets(root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False, use_augmentation=False, aug_data_root=None):
 
     if is_test_set:
         test_dataset = testDataset(
-            root, transforms=get_transform(val_set=is_val_set))
+            root, transforms=get_transform(use_augmentation=use_augmentation))
         return test_dataset
 
     my_dataset = myOwnDataset(root=root,
                               annotation=annotation,
-                              transforms=get_transform(val_set=is_val_set),
+                              transforms=get_transform(use_augmentation=use_augmentation),
                               semantic_masks_folder=semantic_masks_folder,
                               aug_data_root=None
                               )
@@ -216,11 +217,11 @@ def collate_fn(batch):
     return tuple(zip(*batch))
 
 
-def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False, is_val_set=False, aug_data_root=None):
+def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False, use_augmentation=False, aug_data_root=None):
 
     if is_test_set:
         test_set = get_datasets(
-            root, is_test_set=is_test_set, is_val_set=is_val_set, aug_data_root=None)
+            root, is_test_set=is_test_set, use_augmentation=use_augmentation, aug_data_root=None)
         data_loader_test = torch.utils.data.DataLoader(test_set,
                                                        batch_size=batch_size,
                                                        shuffle=False,
@@ -232,7 +233,7 @@ def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.2
         train_set, val_set = get_datasets(root=root,
                                           annotation=annotation,
                                           split=split, val_size=val_size,
-                                          semantic_masks_folder=semantic_masks_folder, is_val_set=is_val_set, aug_data_root=None)
+                                          semantic_masks_folder=semantic_masks_folder, use_augmentation=use_augmentation, aug_data_root=None)
         data_loader_train = torch.utils.data.DataLoader(train_set,
                                                         batch_size=batch_size,
                                                         shuffle=False,
@@ -249,7 +250,7 @@ def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.2
         return data_loader_train, data_loader_val
     else:
         dataset = get_datasets(
-            root=root, annotation=annotation, semantic_masks_folder=semantic_masks_folder, is_val_set=is_val_set, aug_data_root=None)
+            root=root, annotation=annotation, semantic_masks_folder=semantic_masks_folder, use_augmentation=use_augmentation, aug_data_root=None)
         data_loader = torch.utils.data.DataLoader(dataset,
                                                   batch_size=batch_size,
                                                   shuffle=False,
