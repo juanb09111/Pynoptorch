@@ -31,13 +31,15 @@ MAX_DETECTIONS = 50 # Maximum number of tracked objects
 NUM_FRAMES = 5 # Number of frames before recycling the ids 
 
 ORIGINAL_INPUT_SIZE_HW = (1080, 1920) 
-
+# ORIGINAL_INPUT_SIZE_HW = (540, 960)
 MIN_SIZE = 800 # Taken from maskrcnn defaults  
 MAX_SIZE = 1333 # Taken from maskrcnn defaults 
 
 
 # DATA = "data/"
 DATA = "random_left/"
+AUGMENTED_DATA = "augmented_data/HrvLog1-54756-0-1548828749/"
+AUGMENTED_PERCENT = 0.5 # number between 0 and 1
 # SEMANTIC_SEGMENTATION_DATA = "semantic_segmentation_data"
 SEMANTIC_SEGMENTATION_DATA = "semantic_masks_18_01"
 SEMANTIC_MASKS_FORMAT = ".png"
@@ -45,16 +47,19 @@ MAX_EPOCHS = 100
 
 
 # If USE_PREEXISTING_DATA_LOADERS is True new data_loaders will not be written
-USE_PREEXISTING_DATA_LOADERS = True
+USE_PREEXISTING_DATA_LOADERS = False
 DATA_LOADER_TRAIN_FILANME = "tmp/data_loaders/data_loader_train.pth"
 DATA_LOADER_VAL_FILENAME = "tmp/data_loaders/data_loader_val.pth"
 DATA_LOADER_VAL_FILENAME_OBJ = "tmp/data_loaders/data_loader_val_obj.pth"
+# DATA_LOADER_TRAIN_FILANME = "tmp/data_loaders/dataloaders_370_samples/data_loader_train.pth"
+# DATA_LOADER_VAL_FILENAME = "tmp/data_loaders/dataloaders_370_samples/data_loader_val.pth"
+# DATA_LOADER_VAL_FILENAME_OBJ = "tmp/data_loaders/dataloaders_370_samples/data_loader_val_obj.pth"
 
 # if USE_PREEXISTING_DATA_LOADERS is false then you can automatically split the data set
 # into val and train
 # Otherwise you have to split the data set manually into their respective folders:
 # constants.TRAIN_DIR and constants.VAL_DIR
-AUTOMATICALLY_SPLIT_SETS = False
+AUTOMATICALLY_SPLIT_SETS = True
 
 # Set the validation set size. This makes no difference if USE_PREEXISTING_DATA_LOADERS is True
 SPLITS = {"VAL_SIZE": 0.157}
@@ -95,31 +100,40 @@ PANOPTIC =  False
 # Customize colors for semantic inference. The length of this array must be #classes + background. 
 # Defaults to None. If None colors are pseudo-randomnly selected. 
 # Check utils/show_segmentation.py for details
-SEM_COLORS = None
-# SEM_COLORS = [
-#     [0/255, 0/255, 0/255],
-#     [30/255, 95/255, 170/255],
-#     [245/255, 208/255, 58/255],
-#     [224/255, 67/255, 217/255],
-#     [255/255, 255/255, 153/255],
-#     [177/255, 89/255, 40/255],
-#     [166/255, 3/255, 3/255],
-#     [65/255, 117/255, 5/255],
-#     [94/255, 245/255, 184/255],
-#     [140/255, 190/255, 248/255]
-# ]
+# SEM_COLORS = None
+SEM_COLORS = [
+    [0/255, 0/255, 0/255],
+    [30/255, 95/255, 170/255],
+    [245/255, 208/255, 58/255],
+    [224/255, 67/255, 217/255],
+    [255/255, 255/255, 153/255],
+    [177/255, 89/255, 40/255],
+    [166/255, 3/255, 3/255],
+    [65/255, 117/255, 5/255],
+    [94/255, 245/255, 184/255],
+    [140/255, 190/255, 248/255]
+]
+
+
 
 # -------- REAL TIME ------
-RT_INSTANCE =  False
+RT_INSTANCE =  True
 RT_SEMANTIC =  False
-RT_PANOPTIC =  True 
+RT_PANOPTIC =  False 
+
+BOUNDING_BOX_ONLY = True
+
+CONFIDENCE_THRESHOLD = 0.8 #Show predictions over this value
+NMS_THRESHOLD = 0.3 # remove overlapping bounding boxes
+OBJECT_TRACKING_IOU_THRESHHOLD = 0.2
 
 OBJECT_TRACKING = True
+SUPER_CLASS = ["car", "truck", "bike"]
 # Camera source can be either a camera device or a video
-CAM_SOURCE = 0
-# CAM_SOURCE = "video.avi"
+# CAM_SOURCE = 0
+CAM_SOURCE = "rt_videos/source/jd_nov_full_res_2.avi"
 SAVE_VIDEO = True
-RT_VIDEO_OUTPUT_BASENAME = "rt"
+RT_VIDEO_OUTPUT_BASENAME = "jd_nov_full_res"
 RT_VIDEO_OUTPUT_FOLDER = "rt_videos/"
 
 # ----- MAKE VIDEO --------
