@@ -17,7 +17,6 @@ from utils import map_hasty
 from utils import get_splits
 
 
-
 # %%
 writer = SummaryWriter()
 
@@ -28,7 +27,7 @@ def __update_model(trainer_engine, batch):
     imgs, annotations = batch[0], batch[1]
 
     imgs = list(img for img in imgs)
-    
+
     imgs = tensorize_batch(imgs, device)
     annotations = [{k: v.to(device) for k, v in t.items()}
                    for t in annotations]
@@ -77,9 +76,9 @@ def __log_validation_results(trainer_engine):
 
     evaluate(model=model, weights_file=weights_path,
              data_loader_val=data_loader_val_obj)
-    
+
     writer.add_scalar("Loss/train/epoch", batch_loss, state_epoch)
-    
+
     scheduler.step()
 
     torch.cuda.empty_cache()
@@ -106,7 +105,7 @@ if __name__ == "__main__":
     if config.CHECKPOINT:
         print("Loading weights from: ", config.CHECKPOINT)
         model.load_state_dict(torch.load(config.CHECKPOINT))
-        
+
     # move model to the right device
     model.to(device)
 
@@ -152,7 +151,8 @@ if __name__ == "__main__":
         config.COCO_ANN_VAL = val_ann_filename
         config.COCO_ANN_TRAIN = train_ann_filename
         # write annotations json files for every split
-        map_hasty.get_split(constants.TRAIN_DIR, train_ann_filename, aug_data_set_folder=config.AUGMENTED_DATA)
+        map_hasty.get_split(constants.TRAIN_DIR, train_ann_filename,
+                            aug_data_set_folder=config.AUGMENTED_DATA)
         map_hasty.get_split(constants.VAL_DIR, val_ann_filename)
 
         train_dir = os.path.join(os.path.dirname(
@@ -172,13 +172,13 @@ if __name__ == "__main__":
 
         # data loaders
         data_loader_train = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, train_dir, annotation=coco_ann_train, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, aug_data_root=config.AUGMENTED_DATA)
+            config.BATCH_SIZE, train_dir, annotation=coco_ann_train, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, use_augmentation=config.USE_TORCHVISION_AUGMENTATION, aug_data_root=config.AUGMENTED_DATA)
 
         data_loader_val = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, val_dir, annotation=coco_ann_val, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, is_val_set=False)
+            config.BATCH_SIZE, val_dir, annotation=coco_ann_val, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, use_augmentation=config.USE_TORCHVISION_AUGMENTATION)
 
         data_loader_val_obj = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, val_dir, annotation=coco_ann_val_obj, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, is_val_set=False, aug_data_root=config.AUGMENTED_DATA)
+            config.BATCH_SIZE, val_dir, annotation=coco_ann_val_obj, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, use_augmentation=config.USE_TORCHVISION_AUGMENTATION, aug_data_root=config.AUGMENTED_DATA)
 
         # save data loaders
         data_loader_train_filename = os.path.join(os.path.dirname(
