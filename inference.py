@@ -64,7 +64,7 @@ def view_masks(model,
                     elif result_type == "semantic":
                         logits = output["semantic_logits"]
                         mask = torch.argmax(logits, dim=0)
-                        im = apply_semantic_mask_gpu(images[idx], mask, config.NUM_THING_CLASSES + config.NUM_THING_CLASSES)
+                        im = apply_semantic_mask_gpu(images[idx], mask, config.NUM_STUFF_CLASSES + config.NUM_THING_CLASSES)
                     
                     save_fig(im, folder, file_name)
 
