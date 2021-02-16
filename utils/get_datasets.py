@@ -7,11 +7,13 @@ import torchvision.transforms as transforms
 from PIL import Image
 import numpy as np
 import config
+import re
 # %%
 
 
 class myOwnDataset(torch.utils.data.Dataset):
     def __init__(self, root, annotation, transforms=None, semantic_masks_folder=None, aug_data_root=None):
+
         self.root = root
         self.aug_root = aug_data_root
         self.transforms = transforms
@@ -50,7 +52,10 @@ class myOwnDataset(torch.utils.data.Dataset):
                 raise AssertionError(
                     "augmented data root folder is not defined. Please set it in config.py")
             else:
+
                 img = Image.open(os.path.join(self.aug_root, path))
+                # remove "_augmented"
+                path = re.sub('\_augmented', '', path)
         else:
             img = Image.open(os.path.join(self.root, path))
 
@@ -174,7 +179,7 @@ def get_transform(use_augmentation=False):
         # custom_transforms.append(transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)))
         custom_transforms.append(transforms.RandomErasing())
         return transforms.Compose(custom_transforms)
-        
+
     else:
         custom_transforms = []
         custom_transforms.append(transforms.ToTensor())
@@ -192,9 +197,10 @@ def get_datasets(root, annotation=None, split=False, val_size=0.20, semantic_mas
 
     my_dataset = myOwnDataset(root=root,
                               annotation=annotation,
-                              transforms=get_transform(use_augmentation=use_augmentation),
+                              transforms=get_transform(
+                                  use_augmentation=use_augmentation),
                               semantic_masks_folder=semantic_masks_folder,
-                              aug_data_root=None
+                              aug_data_root=aug_data_root
                               )
     if split:
         if val_size >= 1:
@@ -221,7 +227,7 @@ def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.2
 
     if is_test_set:
         test_set = get_datasets(
-            root, is_test_set=is_test_set, use_augmentation=use_augmentation, aug_data_root=None)
+            root, is_test_set=is_test_set, use_augmentation=use_augmentation, aug_data_root=aug_data_root)
         data_loader_test = torch.utils.data.DataLoader(test_set,
                                                        batch_size=batch_size,
                                                        shuffle=False,
@@ -233,7 +239,7 @@ def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.2
         train_set, val_set = get_datasets(root=root,
                                           annotation=annotation,
                                           split=split, val_size=val_size,
-                                          semantic_masks_folder=semantic_masks_folder, use_augmentation=use_augmentation, aug_data_root=None)
+                                          semantic_masks_folder=semantic_masks_folder, use_augmentation=use_augmentation, aug_data_root=aug_data_root)
         data_loader_train = torch.utils.data.DataLoader(train_set,
                                                         batch_size=batch_size,
                                                         shuffle=False,
@@ -250,7 +256,7 @@ def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.2
         return data_loader_train, data_loader_val
     else:
         dataset = get_datasets(
-            root=root, annotation=annotation, semantic_masks_folder=semantic_masks_folder, use_augmentation=use_augmentation, aug_data_root=None)
+            root=root, annotation=annotation, semantic_masks_folder=semantic_masks_folder, use_augmentation=use_augmentation, aug_data_root=aug_data_root)
         data_loader = torch.utils.data.DataLoader(dataset,
                                                   batch_size=batch_size,
                                                   shuffle=False,

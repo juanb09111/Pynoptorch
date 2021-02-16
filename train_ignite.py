@@ -175,7 +175,7 @@ if __name__ == "__main__":
             config.BATCH_SIZE, train_dir, annotation=coco_ann_train, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, use_augmentation=config.USE_TORCHVISION_AUGMENTATION, aug_data_root=config.AUGMENTED_DATA)
 
         data_loader_val = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, val_dir, annotation=coco_ann_val, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, use_augmentation=config.USE_TORCHVISION_AUGMENTATION)
+            config.BATCH_SIZE, val_dir, annotation=coco_ann_val, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, use_augmentation=config.USE_TORCHVISION_AUGMENTATION, aug_data_root=None)
 
         data_loader_val_obj = get_datasets.get_dataloaders(
             config.BATCH_SIZE, val_dir, annotation=coco_ann_val_obj, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, use_augmentation=config.USE_TORCHVISION_AUGMENTATION, aug_data_root=config.AUGMENTED_DATA)

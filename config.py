@@ -63,7 +63,7 @@ DATA_LOADER_VAL_FILENAME_OBJ = "tmp/data_loaders/data_loader_val_obj.pth"
 AUTOMATICALLY_SPLIT_SETS = True
 
 # Set the validation set size. This makes no difference if USE_PREEXISTING_DATA_LOADERS is True
-SPLITS = {"VAL_SIZE": 0.157}
+SPLITS = {"VAL_SIZE": 0.20}
 
 # HASTY_COCO_ANN  is the coco ann file exported by hasty
 # HASTY_COCO_ANN = "coco_hasty_annotations.json"

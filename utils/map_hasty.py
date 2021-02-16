@@ -35,7 +35,7 @@ def __map_ann_ids(anns, bg_anns=None, obj_anns=None):
     return new_anns, new_bg_anns, new_obj_anns
 
 
-def __add_augmented_img(img, img_anns, aug_filenames):
+def __add_augmented_img(img, img_anns, aug_filenames, max_img_id, max_ann_id):
 
     new_img = None
     new_anns = []
@@ -49,20 +49,12 @@ def __add_augmented_img(img, img_anns, aug_filenames):
     
     # if there's a match
     if len(match) > 0:
-        #set id as timestamp 
-        new_img_id = uuid.uuid1()
-        new_img_id = str(new_img_id.int)
-        new_img_id = int(new_img_id)
         # create new img dict
-        new_img ={**img, "id": new_img_id, "file_name": match}
+        new_img ={**img, "id": max_img_id + 1, "file_name": match[0]}
 
         for ann_dict in img_anns:
             # create new img ann dict
-            new_ann_id = uuid.uuid1()
-            new_ann_id = str(new_ann_id.int)
-            new_ann_id = int(new_ann_id)
-            new_img_ann = {**ann_dict, "id": new_ann_id, "image_id": new_img_id}
-
+            new_img_ann = {**ann_dict, "id": max_ann_id + 1, "image_id": max_img_id + 1}
             new_anns.append(new_img_ann)
     
     return new_img , new_anns
@@ -77,7 +69,10 @@ def get_split(img_folder, output_file, aug_data_set_folder=None):
         # list of images
         images = data["images"]
         print("total images in coco_ann: ", len(images))
+
         annotations = data['annotations']
+        max_ann_id = max(list(map(lambda ann: ann["id"], annotations)))
+
         categories = data["categories"]
         # get background categories
         bg_categories = list(filter(lambda x: x["supercategory"] == "background", categories))
@@ -105,6 +100,9 @@ def get_split(img_folder, output_file, aug_data_set_folder=None):
         images_file_names = [] # images filenames from annotations
         images_in_folder = []  # images in annotations also found in the root folder
         max_n_augmented = 0 # max number of augmented images to be used
+
+        max_img_id = max(list(map(lambda img: img["id"], images)))
+
         for(_, _, filenames) in walk(img_folder):
             dir_filenames.extend(filenames)
 
@@ -148,10 +146,12 @@ def get_split(img_folder, output_file, aug_data_set_folder=None):
                 new_dict['images'].append(img[0])
                 new_dict['annotations'].extend(anns)
 
+
+                
                 # Do likewise for augmented dataset, do this inside this if so it is guaranteed that there's an annotation for this image
                 if len(aug_filenames) > 0 and augmented_count <= max_n_augmented:
 
-                    aug_img, aug_anns = __add_augmented_img(img[0], anns, aug_filenames)
+                    aug_img, aug_anns = __add_augmented_img(img[0], anns, aug_filenames, max_img_id, max_ann_id)
                     
                     aug_anns_background = list(filter(lambda x: x['category_id'] in bg_categories_ids, aug_anns))
                     if len(anns_background) > 0:
@@ -167,6 +167,9 @@ def get_split(img_folder, output_file, aug_data_set_folder=None):
                     new_dict['annotations'].extend(aug_anns)
 
                     augmented_count = augmented_count + 1
+                    max_img_id = max_img_id + 1
+                    max_ann_id = max_ann_id + 1
+                    
 
         print("aug n: ", augmented_count)
         new_anns, bg_anns, obj_anns = __map_ann_ids(new_dict['annotations'], bg_dict['annotations'], obj_dict['annotations'])
