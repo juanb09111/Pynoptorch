@@ -29,8 +29,8 @@ conda env create -f conda_environment.yml
 
 # Data
 
-* Put your coco annotations file in the root folder
-* Place all the images under data/
+* Put your coco annotations file under the root folder
+* Place all the training images  under data/
 
 Set AUTOMATICALLY_SPLIT_SETS = True in config.py the first time you run train_ignite.py  to populate data_train and data_val folders with random images taken from the data/ folder. The validation set size can be set in config.py with SPLITS.VAL_SIZE. 
 If you want to keep the same training and validation sets for future training runs set AUTOMATICALLY_SPLIT_SETS = False in config.py
@@ -41,6 +41,7 @@ Pynoptorch
 ├── data_train (Automatically created)
 ├── data_val (Automatically created)
 ├── semantic_segmentation_data (put all the semantic segmentation masks here)
+├── augmented_data (put all augmented/stylized images here)
 ├── coco_hasty_annotations.json
 .
 .
@@ -49,13 +50,15 @@ Pynoptorch
 
 # Train with ignite 
 
-After having organized your data simply run:
+First of all, set up your configuration file config.py. There you will be able to select your network backbone, amount of evaluation images, pre-trained weights and more.
+
+After having organized your data and set up your config file, simply run:
 
 ```
 python train_ignite.py
 ```
 
-The weights are saved every epoch under tmp/models/ and the progress is saved ub tnp/res/training_results.txt
+The weights are saved every epoch under tmp/models/ and the progress is saved in tmp/res/training_results.txt
 
 # Evaluate
 
