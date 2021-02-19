@@ -3,6 +3,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from .depth_wise_conv import depth_wise_conv as dwConv
+import config
 
 
 def sumLayer(x, y):
@@ -16,7 +17,12 @@ class bottleneck_block(nn.Module):
         self.stride = stride
         self.conv2Dexpand = nn.Conv2d(in_channels=in_channels, out_channels=in_channels*t, kernel_size=1)
         self.batchNormExpand1 = nn.BatchNorm2d(in_channels*t)
-        self.depthwiseConv = dwConv(in_channels*t, kernel_size=kernel_size, stride=stride, padding=padding)
+        if config.BACKBONE_DEPTHWISE_CONV:
+            print("using depthwise conv in bottleneck block")
+            self.depthwiseConv = dwConv(in_channels*t, kernel_size=kernel_size, stride=stride, padding=padding)
+        else:
+            print("using traditional conv in bottleneck block")
+            self.conv2d = nn.Conv2d(in_channels*t, in_channels*t, kernel_size=kernel_size, stride=stride, padding=padding)
         self.batchNormExpand2 = nn.BatchNorm2d(in_channels*t)
         self.conv2Dsqueeze = nn.Conv2d(in_channels=in_channels*t, out_channels=out_channels, kernel_size=1)
         self.batchNormSqueeze = nn.BatchNorm2d(out_channels)
@@ -26,7 +32,12 @@ class bottleneck_block(nn.Module):
         y = self.conv2Dexpand(x)
         y = self.batchNormExpand1(y)
         y = F.relu6(y)
-        y = self.depthwiseConv(y)
+
+        if config.BACKBONE_DEPTHWISE_CONV:
+            y = self.depthwiseConv(y)
+        else:
+            y = self.conv2d(y)
+
         y = self.batchNormExpand2(y)
         y = F.relu6(y)
         y = self.conv2Dsqueeze(y)

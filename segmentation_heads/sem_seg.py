@@ -8,19 +8,19 @@ from .DPC import DPC
 from .MC import MC
 #%%
 class segmentation_head(nn.Module):
-    def __init__(self, in_channels, num_classes, output_resol):
+    def __init__(self, in_channels, num_classes, output_resol, depthwise_conv=True):
         super().__init__()
         print("sem classes", num_classes)
         self.output_resol = output_resol
 
-        self.LSFE_P4 = LSFE(in_channels, 128)
-        self.LSFE_P8 = LSFE(in_channels, 128)
+        self.LSFE_P4 = LSFE(in_channels, 128, depthwise_conv=depthwise_conv)
+        self.LSFE_P8 = LSFE(in_channels, 128, depthwise_conv=depthwise_conv)
 
-        self.DPC_P16 = DPC(in_channels, 128)
-        self.DPC_P32 = DPC(in_channels, 128)
+        self.DPC_P16 = DPC(in_channels, 128, depthwise_conv=depthwise_conv)
+        self.DPC_P32 = DPC(in_channels, 128, depthwise_conv=depthwise_conv)
 
-        self.MC1 = MC(128, 128)
-        self.MC2 = MC(128, 128)
+        self.MC1 = MC(128, 128, depthwise_conv=depthwise_conv)
+        self.MC2 = MC(128, 128, depthwise_conv=depthwise_conv)
         # num_classes = N ‘stuff’+‘thing’
         self.out_conv = nn.Conv2d(512, num_classes, kernel_size=1)
 

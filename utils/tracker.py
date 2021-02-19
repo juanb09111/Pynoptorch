@@ -3,7 +3,8 @@ import config
 import temp_variables
 import numpy as np
 import numba
-from numba import jit, cuda 
+from numba import jit, cuda
+import operator
 
 start = config.NUM_STUFF_CLASSES + config.MAX_DETECTIONS
 stop = config.MAX_DETECTIONS*(config.NUM_FRAMES+2)
@@ -19,11 +20,11 @@ def get_iou_matrix(iou_matrix, prev_boxes, new_boxes, prev_labels, new_labels):
 
     for i, new_box in enumerate(new_boxes):
         for j, prev_box in enumerate(prev_boxes):
-            if new_labels[i] != prev_labels[j]:
-                # ciou_time = 0
-                iou_matrix[i][j] = 0
+                
+            # ciou_time = 0
+            iou_matrix[i][j] = 0
 
-            else:
+            if new_labels[i] == prev_labels[j]:
                 # min x of intersection
                 xA = max(prev_box[0], new_box[0])
                 # min y of intersection
@@ -73,7 +74,14 @@ def init_tracker(num_ids):
     return ids_arr
 
 
-def get_tracked_objects(prev_boxes, new_boxes, prev_labels, new_labels, iou_threshold):
+def map_to_super_class(label, super_cat_indices):
+
+    if label in super_cat_indices:
+        return config.NUM_STUFF_CLASSES + config.NUM_THING_CLASSES + 2
+
+    return label
+
+def get_tracked_objects(prev_boxes, new_boxes, prev_labels, new_labels, super_cat_indices, iou_threshold):
 
 
     new_ids= torch.zeros(min(config.MAX_DETECTIONS, len(new_boxes)), dtype=torch.long, device=temp_variables.DEVICE)
@@ -94,7 +102,11 @@ def get_tracked_objects(prev_boxes, new_boxes, prev_labels, new_labels, iou_thre
     # Calculate iou matrix
     iou_matrix = torch.zeros(new_boxes[:max_trk].shape[0], prev_boxes.shape[0], device=temp_variables.DEVICE)
     blockspergrid = (len(prev_boxes)*len(new_boxes[:max_trk]) + (threadsperblock - 1)) // threadsperblock
-    get_iou_matrix[blockspergrid, threadsperblock](iou_matrix, prev_boxes, new_boxes[:max_trk], prev_labels, new_labels)
+
+    mapped_prev_labels = torch.tensor(list(map(lambda val: map_to_super_class(val, super_cat_indices), prev_labels)),  device=temp_variables.DEVICE)
+    mapped_new_labels = torch.tensor(list(map(lambda val: map_to_super_class(val, super_cat_indices), new_labels)),  device=temp_variables.DEVICE)
+
+    get_iou_matrix[blockspergrid, threadsperblock](iou_matrix, prev_boxes, new_boxes[:max_trk], mapped_prev_labels, mapped_new_labels)
 
 
     # Ids not used yet

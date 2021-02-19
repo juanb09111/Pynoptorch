@@ -26,7 +26,8 @@ def randRGB(seed=None):
 
 
 def get_colors_palete(num_classes):
-    if (config.SEM_COLORS != None) and (len(config.SEM_COLORS >= num_classes + 1)):
+    if (config.SEM_COLORS != None) and (len(config.SEM_COLORS) >= num_classes + 1):
+
         return config.SEM_COLORS
     
     colors = [randRGB(i+5) for i in range(num_classes + 1)]
@@ -65,6 +66,9 @@ def apply_instance_masks(image, masks, confidence, ids=None):
 
 def apply_semantic_mask_gpu(image, mask, num_classes):
     colors = get_colors_palete(num_classes)
+    # print("---------------")
+    # print(colors)
+    # print("---------------")
     max_val = mask.max()
     for i in range(1, max_val + 1):
         for c in range(3):
@@ -79,10 +83,10 @@ def apply_semantic_mask_gpu(image, mask, num_classes):
     return image
 
 def apply_panoptic_mask_gpu(image, mask):
-    
+
     num_stuff_classes = config.NUM_STUFF_CLASSES
     max_val = mask.max()
-    colors = get_colors_palete(config.NUM_THING_CLASSES + config.NUM_THING_CLASSES)
+    colors = get_colors_palete(config.NUM_STUFF_CLASSES + config.NUM_THING_CLASSES)
 
     for i in range(1, max_val + 1):
         for c in range(3):
