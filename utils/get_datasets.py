@@ -7,15 +7,19 @@ import torchvision.transforms as transforms
 from PIL import Image
 import numpy as np
 import config
+import re
 # %%
 
 
 class myOwnDataset(torch.utils.data.Dataset):
-    def __init__(self, root, annotation, transforms=None, semantic_masks_folder=None):
+    def __init__(self, root, annotation, transforms=None, semantic_masks_folder=None, aug_data_root=None):
+
         self.root = root
+        self.aug_root = aug_data_root
         self.transforms = transforms
         self.coco = COCO(annotation)
         self.ids = list(sorted(self.coco.imgs.keys()))
+
         self.semantic_masks_folder = semantic_masks_folder
         catIds = self.coco.getCatIds()
         categories = self.coco.loadCats(catIds)
@@ -41,13 +45,26 @@ class myOwnDataset(torch.utils.data.Dataset):
         coco_annotation = coco.loadAnns(obj_ann_ids)
         # path for input image
         path = coco.loadImgs(img_id)[0]['file_name']
-        # open the input image
-        img = Image.open(os.path.join(self.root, path))
 
+        # open the input image
+        if "augmented" in path:
+            if self.aug_root == None:
+                raise AssertionError(
+                    "augmented data root folder is not defined. Please set it in config.py")
+            else:
+
+                img = Image.open(os.path.join(self.aug_root, path))
+                # remove "_augmented"
+                path = re.sub('\_augmented', '', path)
+        else:
+            img = Image.open(os.path.join(self.root, path))
+
+        semantic_mask_path = os.path.splitext(
+            path)[0] + config.SEMANTIC_MASKS_FORMAT
         # create semantic mask
         if self.semantic_masks_folder is not None:
             semantic_mask = Image.open(os.path.join(
-                self.semantic_masks_folder, path + ".png"))
+                self.semantic_masks_folder, semantic_mask_path))
             semantic_mask = np.array(semantic_mask)
         # number of objects in the image
         num_objs = len(coco_annotation)
@@ -92,16 +109,16 @@ class myOwnDataset(torch.utils.data.Dataset):
             iscrowd = torch.as_tensor(iscrowd, dtype=torch.int64)
         else:
             boxes = torch.zeros((0, 4), dtype=torch.float32)
-            areas = torch.as_tensor((boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]))
+            areas = torch.as_tensor(
+                (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]))
             labels = torch.zeros((1), dtype=torch.int64)
-            masks = torch.zeros((1 , *config.ORIGINAL_INPUT_SIZE_HW), dtype=torch.uint8)
+            masks = torch.zeros(
+                (1, *config.ORIGINAL_INPUT_SIZE_HW), dtype=torch.uint8)
             iscrowd = torch.zeros((0,), dtype=torch.int64)
-
 
         # Tensorise img_id
         img_id = torch.tensor([img_id])
         # Iscrowd
-        
 
         category_ids = torch.as_tensor(category_ids, dtype=torch.int64)
 
@@ -154,24 +171,36 @@ class testDataset(torch.utils.data.Dataset):
         return len(self.file_names_arr)
 
 
-def get_transform():
-    custom_transforms = []
-    custom_transforms.append(transforms.ToTensor())
-    return transforms.Compose(custom_transforms)
+def get_transform(use_augmentation=False):
+    if use_augmentation:
+        custom_transforms = []
+        custom_transforms.append(transforms.RandomHorizontalFlip())
+        custom_transforms.append(transforms.ToTensor())
+        # custom_transforms.append(transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)))
+        custom_transforms.append(transforms.RandomErasing())
+        return transforms.Compose(custom_transforms)
+
+    else:
+        custom_transforms = []
+        custom_transforms.append(transforms.ToTensor())
+        return transforms.Compose(custom_transforms)
 
 
 # create own Dataset
 
-def get_datasets(root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False):
+def get_datasets(root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False, use_augmentation=False, aug_data_root=None):
 
     if is_test_set:
-        test_dataset = testDataset(root, transforms=get_transform())
+        test_dataset = testDataset(
+            root, transforms=get_transform(use_augmentation=use_augmentation))
         return test_dataset
 
     my_dataset = myOwnDataset(root=root,
                               annotation=annotation,
-                              transforms=get_transform(),
-                              semantic_masks_folder=semantic_masks_folder
+                              transforms=get_transform(
+                                  use_augmentation=use_augmentation),
+                              semantic_masks_folder=semantic_masks_folder,
+                              aug_data_root=aug_data_root
                               )
     if split:
         if val_size >= 1:
@@ -193,10 +222,12 @@ def get_datasets(root, annotation=None, split=False, val_size=0.20, semantic_mas
 def collate_fn(batch):
     return tuple(zip(*batch))
 
-def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False):
+
+def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False, use_augmentation=False, aug_data_root=None):
 
     if is_test_set:
-        test_set = get_datasets(root, is_test_set=is_test_set)
+        test_set = get_datasets(
+            root, is_test_set=is_test_set, use_augmentation=use_augmentation, aug_data_root=aug_data_root)
         data_loader_test = torch.utils.data.DataLoader(test_set,
                                                        batch_size=batch_size,
                                                        shuffle=False,
@@ -208,7 +239,7 @@ def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.2
         train_set, val_set = get_datasets(root=root,
                                           annotation=annotation,
                                           split=split, val_size=val_size,
-                                          semantic_masks_folder=semantic_masks_folder)
+                                          semantic_masks_folder=semantic_masks_folder, use_augmentation=use_augmentation, aug_data_root=aug_data_root)
         data_loader_train = torch.utils.data.DataLoader(train_set,
                                                         batch_size=batch_size,
                                                         shuffle=False,
@@ -225,7 +256,7 @@ def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.2
         return data_loader_train, data_loader_val
     else:
         dataset = get_datasets(
-            root=root, annotation=annotation, semantic_masks_folder=semantic_masks_folder)
+            root=root, annotation=annotation, semantic_masks_folder=semantic_masks_folder, use_augmentation=use_augmentation, aug_data_root=aug_data_root)
         data_loader = torch.utils.data.DataLoader(dataset,
                                                   batch_size=batch_size,
                                                   shuffle=False,

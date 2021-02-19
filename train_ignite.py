@@ -3,9 +3,11 @@ import os.path
 import sys
 from ignite.engine import Events, Engine
 import torch
+from torch.optim.lr_scheduler import StepLR
 from utils import get_datasets
 from utils.tensorize_batch import tensorize_batch
 from eval_coco import evaluate
+from torch.utils.tensorboard import SummaryWriter
 
 import config
 import temp_variables
@@ -16,20 +18,25 @@ from utils import get_splits
 
 
 # %%
+writer = SummaryWriter()
 
 
-def __update_model(_, batch):
+def __update_model(trainer_engine, batch):
     model.train()
     optimizer.zero_grad()
     imgs, annotations = batch[0], batch[1]
 
     imgs = list(img for img in imgs)
-    
+
     imgs = tensorize_batch(imgs, device)
     annotations = [{k: v.to(device) for k, v in t.items()}
                    for t in annotations]
     loss_dict = model(imgs, anns=annotations)
     losses = sum(loss for loss in loss_dict.values())
+
+    i = trainer_engine.state.iteration
+    writer.add_scalar("Loss/train/iteration", losses, i)
+
     losses.backward()
     optimizer.step()
 
@@ -69,6 +76,11 @@ def __log_validation_results(trainer_engine):
 
     evaluate(model=model, weights_file=weights_path,
              data_loader_val=data_loader_val_obj)
+
+    writer.add_scalar("Loss/train/epoch", batch_loss, state_epoch)
+
+    scheduler.step()
+
     torch.cuda.empty_cache()
 
 
@@ -89,25 +101,35 @@ if __name__ == "__main__":
 
     # Get model according to config
     model = models.get_model()
+
+    if config.CHECKPOINT:
+        print("Loading weights from: ", config.CHECKPOINT)
+        model.load_state_dict(torch.load(config.CHECKPOINT))
+
     # move model to the right device
     model.to(device)
 
     print(torch.cuda.memory_allocated(device=device))
     # Define params
     params = [p for p in model.parameters() if p.requires_grad]
+
     optimizer = torch.optim.SGD(
-        params, lr=0.005, momentum=0.9, weight_decay=0.0005)
+        params, lr=0.0016, momentum=0.9, weight_decay=0.0005)
 
     data_loader_train = None
     data_loader_val = None
     data_loader_val_obj = None
 
     if config.USE_PREEXISTING_DATA_LOADERS:
+        print("Using pre-existing dataloaders")
         data_loader_train = torch.load(config.DATA_LOADER_TRAIN_FILANME)
+        print("Train set samples: ", len(data_loader_train)*config.BATCH_SIZE)
         data_loader_val = torch.load(config.DATA_LOADER_VAL_FILENAME)
+        print("Eval set samples: ", len(data_loader_val)*config.BATCH_SIZE)
         data_loader_val_obj = torch.load(config.DATA_LOADER_VAL_FILENAME_OBJ)
 
     else:
+        print("New dataloaders will be created")
         if config.AUTOMATICALLY_SPLIT_SETS:
             get_splits.get_splits()
 
@@ -123,13 +145,11 @@ if __name__ == "__main__":
 
         train_ann_filename = train_ann_filename if config.COCO_ANN_TRAIN is None else config.COCO_ANN_TRAIN
         val_ann_filename = val_ann_filename if config.COCO_ANN_VAL is None else config.COCO_ANN_VAL
-        # overwrite config
+        
 
-        # TODO: Next two lines may not be necesary
-        config.COCO_ANN_VAL = val_ann_filename
-        config.COCO_ANN_TRAIN = train_ann_filename
         # write annotations json files for every split
-        map_hasty.get_split(constants.TRAIN_DIR, train_ann_filename)
+        map_hasty.get_split(constants.TRAIN_DIR, train_ann_filename,
+                            aug_data_set_folder=config.AUGMENTED_DATA_LOC)
         map_hasty.get_split(constants.VAL_DIR, val_ann_filename)
 
         train_dir = os.path.join(os.path.dirname(
@@ -149,13 +169,13 @@ if __name__ == "__main__":
 
         # data loaders
         data_loader_train = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, train_dir, annotation=coco_ann_train, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
+            config.BATCH_SIZE, train_dir, annotation=coco_ann_train, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA_LOC, use_augmentation=config.USE_TORCHVISION_AUGMENTATION, aug_data_root=config.AUGMENTED_DATA_LOC)
 
         data_loader_val = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, val_dir, annotation=coco_ann_val, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
+            config.BATCH_SIZE, val_dir, annotation=coco_ann_val, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA_LOC, use_augmentation=config.USE_TORCHVISION_AUGMENTATION, aug_data_root=None)
 
         data_loader_val_obj = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, val_dir, annotation=coco_ann_val_obj, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA)
+            config.BATCH_SIZE, val_dir, annotation=coco_ann_val_obj, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA_LOC, use_augmentation=config.USE_TORCHVISION_AUGMENTATION, aug_data_root=config.AUGMENTED_DATA_LOC)
 
         # save data loaders
         data_loader_train_filename = os.path.join(os.path.dirname(
@@ -170,6 +190,10 @@ if __name__ == "__main__":
         torch.save(data_loader_train, data_loader_train_filename)
         torch.save(data_loader_val, data_loader_val_filename)
         torch.save(data_loader_val_obj, data_loader_val_obj_filename)
+
+    print("Train set samples: ", len(data_loader_train)*config.BATCH_SIZE)
+    print("Eval set samples: ", len(data_loader_val)*config.BATCH_SIZE)
+    scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
 
     ignite_engine = Engine(__update_model)
     ignite_engine.add_event_handler(

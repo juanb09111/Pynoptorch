@@ -1,4 +1,5 @@
 import torch
+import torchvision
 import numpy as np
 import os.path
 import json
@@ -35,6 +36,37 @@ def threshold_instances(preds, threshold=0.5):
             preds[i]["ids"] = ids
 
     return preds
+
+def threshold_overlap(preds, nms_threshold=0.4):
+
+    for i in range(len(preds)):
+        mask_logits, bbox_pred, class_pred, confidence = preds[i][
+            "masks"], preds[i]["boxes"], preds[i]["labels"], preds[i]["scores"]
+
+        if "ids" in preds[i].keys():
+            ids = preds[i]["ids"]
+        
+        
+        indices = torchvision.ops.nms(bbox_pred, confidence, nms_threshold)
+        
+        mask_logits = torch.index_select(mask_logits, 0, indices)
+        bbox_pred = torch.index_select(bbox_pred, 0, indices)
+        class_pred = torch.index_select(class_pred, 0, indices)
+        confidence = torch.index_select(confidence, 0, indices)
+        if "ids" in preds[i].keys():
+            ids = torch.index_select(ids, 0, indices)
+
+        preds[i]["masks"] = mask_logits
+        preds[i]["boxes"] = bbox_pred
+        preds[i]["labels"] = class_pred
+        preds[i]["scores"] = confidence
+        if "ids" in  preds[i].keys():
+            preds[i]["ids"] = ids
+
+    return preds
+
+
+
 
 def sort_by_confidence(preds):
 

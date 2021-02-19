@@ -132,31 +132,31 @@ class efficient_net(nn.Module):
 
 def EfficientNetB0(original_aspect_ratio):
     resol = (224, math.ceil(224/original_aspect_ratio))
-    print("resol", resol)
+    print("efficient_net input resolution: ", resol)
     return efficient_net(3, 1, 1, resol)
 
 
 def EfficientNetB1(original_aspect_ratio):
     resol = (240, math.ceil(240/original_aspect_ratio))
-    print("resol", resol)
+    print("efficient_net input resolution: ", resol)
     return efficient_net(3, 1.0, 1.1, resol)
 
 
 def EfficientNetB2(original_aspect_ratio):
     resol = (260, math.ceil(260/original_aspect_ratio))
-    print("resol", resol)
+    print("efficient_net input resolution: ", resol)
     return efficient_net(3, 1.1, 1.2, resol)
 
 
 def EfficientNetB3(original_aspect_ratio):
     resol = (300, math.ceil(300/original_aspect_ratio))
-    print("resol", resol)
+    print("efficient_net input resolution: ", resol)
     return efficient_net(3, 1.2, 1.4, resol)
 
 
 def EfficientNetB4(original_aspect_ratio):
     resol = (380, math.ceil(380/original_aspect_ratio))
-    print("resol", resol)
+    print("efficient_net input resolution: ", resol)
     return efficient_net(3, 1.4, 1.8, resol)
 
 
@@ -168,11 +168,11 @@ def EfficientNetB5(original_aspect_ratio):
 
 def EfficientNetB6(original_aspect_ratio):
     resol = (528, math.ceil(528/original_aspect_ratio))
-    print("resol", resol)
+    print("efficient_net input resolution: ", resol)
     return efficient_net(3, 1.8, 2.6, resol)
 
 
 def EfficientNetB7(original_aspect_ratio):
     resol = (600, math.ceil(600/original_aspect_ratio))
-    print("resol", resol)
+    print("efficient_net input resolution: ", resol)
     return efficient_net(3, 2.0, 3.1, resol)

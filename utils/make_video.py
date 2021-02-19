@@ -13,8 +13,12 @@ data_dir = os.path.join(os.path.dirname(
 
 images = []
 
+def get_number(file_name):
 
-for infile in sorted(glob.glob('{}/*.png'.format(data_dir))):
+    f_name= file_name.split("/")[-1].split("-")[-1]
+    return f_name
+
+for infile in sorted(glob.glob('{}/*.jpg'.format(data_dir)), key=get_number):
     images.append(os.path.basename(infile))
 
 

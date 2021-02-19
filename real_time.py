@@ -7,7 +7,7 @@ import models
 from utils.tensorize_batch import tensorize_batch
 import torchvision.transforms as transforms
 from utils.show_segmentation import apply_semantic_mask_gpu, apply_panoptic_mask_gpu, apply_instance_masks
-from utils.panoptic_fusion import panoptic_fusion, panoptic_canvas, get_stuff_thing_classes, threshold_instances, sort_by_confidence
+from utils.panoptic_fusion import panoptic_fusion, panoptic_canvas, get_stuff_thing_classes, threshold_instances, sort_by_confidence, threshold_overlap
 from utils.get_datasets import get_transform
 from utils.tracker import get_tracked_objects
 
@@ -21,6 +21,11 @@ result_type = None
 prev_det = None
 new_det = None
 iou_threshold = 0.2
+
+color_max_val = 1
+
+if config.BOUNDING_BOX_ONLY:
+    color_max_val = 255
 
 if config.RT_SEMANTIC:
     result_type = "semantic"
@@ -52,7 +57,7 @@ video_full_path = os.path.join(os.path.dirname(
 # write video
 if config.SAVE_VIDEO:
     out = cv2.VideoWriter(video_full_path, cv2.VideoWriter_fourcc(
-        *'DIVX'), 6, (config.ORIGINAL_INPUT_SIZE_HW[1], config.ORIGINAL_INPUT_SIZE_HW[0]))
+        'M','J','P','G'), 6, (config.ORIGINAL_INPUT_SIZE_HW[1], config.ORIGINAL_INPUT_SIZE_HW[0]))
 # empty cuda
 torch.cuda.empty_cache()
 
@@ -75,6 +80,13 @@ model.eval()
 
 all_categories, stuff_categories, thing_categories = get_stuff_thing_classes()
 
+
+things_names = list(map(lambda thing: thing["name"], thing_categories))
+super_cat_indices = [things_names.index(label) + 1 for label in config.SUPER_CLASS]
+
+# print("all_categories", all_categories)
+
+# print("thing_categories", thing_categories)
 # Define transformation pipe
 
 
@@ -92,18 +104,20 @@ def get_seg_frame(frame, prev_det, confidence=0.5):
 
         outputs = model(images)
 
-        threshold_preds = threshold_instances(outputs)
+        threshold_preds = threshold_instances(outputs, threshold=config.CONFIDENCE_THRESHOLD)
+        threshold_preds = threshold_overlap(threshold_preds, nms_threshold=config.NMS_THRESHOLD)
         sorted_preds = sort_by_confidence(threshold_preds)
+        
 
 
-        if config.OBJECT_TRACKING and result_type != "semantic":
+        if config.OBJECT_TRACKING:
             tracked_obj = None
             if prev_det is None:
                 tracked_obj = get_tracked_objects(
-                    None, sorted_preds[0]["boxes"], None, sorted_preds[0]["labels"], iou_threshold)
+                    None, sorted_preds[0]["boxes"], None, sorted_preds[0]["labels"], super_cat_indices, config.OBJECT_TRACKING_IOU_THRESHHOLD)
             else:
                 tracked_obj = get_tracked_objects(
-                    prev_det[0]["boxes"], sorted_preds[0]["boxes"], prev_det[0]["labels"], sorted_preds[0]["labels"], iou_threshold)
+                    prev_det[0]["boxes"], sorted_preds[0]["boxes"], prev_det[0]["labels"], sorted_preds[0]["labels"], super_cat_indices, config.OBJECT_TRACKING_IOU_THRESHHOLD)
 
 
             sorted_preds[0]["ids"] = tracked_obj
@@ -118,14 +132,16 @@ def get_seg_frame(frame, prev_det, confidence=0.5):
                 sorted_preds[0]["labels"] = sorted_preds[0]["labels"][:len(
                     tracked_obj)]
 
+        if config.BOUNDING_BOX_ONLY:
+            return frame, None, sorted_preds
 
         if result_type == "semantic":
 
             logits = outputs[0]["semantic_logits"]
             mask = torch.argmax(logits, dim=0)
-            im = apply_semantic_mask_gpu(images[0], mask, config.NUM_THING_CLASSES + config.NUM_THING_CLASSES)
+            im = apply_semantic_mask_gpu(images[0], mask, config.NUM_STUFF_CLASSES + config.NUM_THING_CLASSES)
 
-            return im.cpu().permute(1, 2, 0).numpy(), None, None
+            return im.cpu().permute(1, 2, 0).numpy(), None, sorted_preds
 
         if result_type == "instance":
             
@@ -154,6 +170,39 @@ def get_seg_frame(frame, prev_det, confidence=0.5):
             return frame, None, sorted_preds
 
 
+def draw_bboxes(im, boxes, labels=None, ids=None):
+
+    for i, box in enumerate(boxes):
+
+        top_left = (box[0], box[1])
+        bottom_right = (box[2], box[3])
+        cv2.rectangle(im,top_left, bottom_right, (0,0,0),6)
+
+        if labels != None:
+            label = labels[i].item()
+            label_name = thing_categories[label - 1]["name"]
+            labelSize = cv2.getTextSize(str(label_name), cv2.FONT_HERSHEY_COMPLEX, 0.5, 2)
+            _x1 = box[0]
+            _y1 = box[1]
+            _x2 = _x1 + int(labelSize[0][0])
+            _y2 = _y1 + int(labelSize[0][1])
+            cv2.rectangle(im,(_x1,_y1),(_x2,_y2),(0,color_max_val,0),cv2.FILLED)
+            cv2.putText(im, str(label_name), (_x1, _y2), cv2.FONT_HERSHEY_COMPLEX,0.5,(0,0,0),1)
+        
+        if ids != None:
+            obj_id = ids[i].item()
+            text = "id={}".format(obj_id)
+            labelSize = cv2.getTextSize(str(text), cv2.FONT_HERSHEY_COMPLEX, 0.5, 2)
+            _x1 = box[0]
+            _y1 = box[3]
+            _x2 = _x1 + int(labelSize[0][0])
+            _y2 = _y1 - int(labelSize[0][1])
+            cv2.rectangle(im,(_x1,_y1),(_x2,_y2),(0,color_max_val,0),cv2.FILLED)
+            cv2.putText(im, str(text), (_x1, _y1), cv2.FONT_HERSHEY_COMPLEX,0.5,(0,0,0),1)
+    return im
+
+
+
 # Video loop
 while(True):
 
@@ -169,7 +218,7 @@ while(True):
     font = cv2.FONT_HERSHEY_SIMPLEX
     bottomLeftCornerOfText = (30, 30)
     fontScale = 0.4
-    fontColor = (255, 255, 255)
+    fontColor = (color_max_val, color_max_val, color_max_val)
     lineType = 1
     text = "fps: {} - ".format(fps)
     if summary_batch:
@@ -177,8 +226,11 @@ while(True):
         for obj in summary:
             text = text + \
                 '{}: {}'.format(obj["name"], obj["count_obj"]) + " - "
+    
+    if not config.BOUNDING_BOX_ONLY:
+        im = cv2.UMat(im)
 
-    im = cv2.UMat(im)
+    im = draw_bboxes(im, new_det[0]["boxes"], new_det[0]["labels"], new_det[0]["ids"])
 
     cv2.putText(im, text,
                 bottomLeftCornerOfText,
@@ -188,7 +240,10 @@ while(True):
                 lineType)
 
     if config.SAVE_VIDEO:
-        out.write(np.uint8(im.get().astype('f')*255))
+        if config.BOUNDING_BOX_ONLY:
+            out.write(im)
+        else:
+            out.write(np.uint8(im.get().astype('f')*255))
 
     cv2.imshow('frame', im)
     if cv2.waitKey(1) & 0xFF == ord('q'):
