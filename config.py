@@ -63,7 +63,7 @@ AUGMENTED_DATA_LOC = "augmented_data/"
 AUGMENTED_PERCENT = 0.5 # number between 0 and 1 corresponding to the number of augmented images to use for training with respect to 
 # the number of images in the original training dataset so that the total number of images use for training is then: n_original + n_original*AUGMENTED_PERCENT
 
-# SEMANTIC_SEGMENTATION_DATA_LOC = "semantic_segmentation_data"
+SEMANTIC_SEGMENTATION_DATA_LOC = "semantic_segmentation_data"
 SEMANTIC_MASKS_FORMAT = ".png"
 
 
