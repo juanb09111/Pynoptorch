@@ -145,14 +145,11 @@ if __name__ == "__main__":
 
         train_ann_filename = train_ann_filename if config.COCO_ANN_TRAIN is None else config.COCO_ANN_TRAIN
         val_ann_filename = val_ann_filename if config.COCO_ANN_VAL is None else config.COCO_ANN_VAL
-        # overwrite config
+        
 
-        # TODO: Next two lines may not be necesary
-        config.COCO_ANN_VAL = val_ann_filename
-        config.COCO_ANN_TRAIN = train_ann_filename
         # write annotations json files for every split
         map_hasty.get_split(constants.TRAIN_DIR, train_ann_filename,
-                            aug_data_set_folder=config.AUGMENTED_DATA)
+                            aug_data_set_folder=config.AUGMENTED_DATA_LOC)
         map_hasty.get_split(constants.VAL_DIR, val_ann_filename)
 
         train_dir = os.path.join(os.path.dirname(
@@ -172,13 +169,13 @@ if __name__ == "__main__":
 
         # data loaders
         data_loader_train = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, train_dir, annotation=coco_ann_train, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, use_augmentation=config.USE_TORCHVISION_AUGMENTATION, aug_data_root=config.AUGMENTED_DATA)
+            config.BATCH_SIZE, train_dir, annotation=coco_ann_train, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA_LOC, use_augmentation=config.USE_TORCHVISION_AUGMENTATION, aug_data_root=config.AUGMENTED_DATA_LOC)
 
         data_loader_val = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, val_dir, annotation=coco_ann_val, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, use_augmentation=config.USE_TORCHVISION_AUGMENTATION, aug_data_root=None)
+            config.BATCH_SIZE, val_dir, annotation=coco_ann_val, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA_LOC, use_augmentation=config.USE_TORCHVISION_AUGMENTATION, aug_data_root=None)
 
         data_loader_val_obj = get_datasets.get_dataloaders(
-            config.BATCH_SIZE, val_dir, annotation=coco_ann_val_obj, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA, use_augmentation=config.USE_TORCHVISION_AUGMENTATION, aug_data_root=config.AUGMENTED_DATA)
+            config.BATCH_SIZE, val_dir, annotation=coco_ann_val_obj, semantic_masks_folder=config.SEMANTIC_SEGMENTATION_DATA_LOC, use_augmentation=config.USE_TORCHVISION_AUGMENTATION, aug_data_root=config.AUGMENTED_DATA_LOC)
 
         # save data loaders
         data_loader_train_filename = os.path.join(os.path.dirname(

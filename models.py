@@ -1,6 +1,6 @@
 from models_bank import mask_rcnn
 # from models_bank.efficient_ps import EfficientPS
-from models_bank.efficient_ps2 import EfficientPS2
+from models_bank.efficient_ps import EfficientPS
 import os.path
 import json
 import constants
@@ -9,7 +9,7 @@ import config
 
 def get_model():
     models_map = {
-        "EfficientPS": EfficientPS2(config.BACKBONE, 
+        "EfficientPS": EfficientPS(config.BACKBONE, 
             config.BACKBONE_OUT_CHANNELS, 
             config.NUM_THING_CLASSES, 
             config.NUM_STUFF_CLASSES, 
