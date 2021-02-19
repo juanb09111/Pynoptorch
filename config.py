@@ -158,7 +158,7 @@ NUM_FRAMES = 5 # Number of frames before recycling the tracking ids
 NMS_THRESHOLD = 0.3 # remove overlapping bounding boxes
 OBJECT_TRACKING_IOU_THRESHHOLD = 0.2
 
-SUPER_CLASS = ["Spruce trunk", "Pine trunk", "Tree trunk", "Birch trunk"] # When tracking objects, all objects belonging to this class will be tracked as one class
+SUPER_CLASS = ["car", "truck", "bike", "bus"] # When tracking objects, all objects belonging to this class will be tracked as one class
 
 # Camera source can be either a camera device or a video
 # CAM_SOURCE = 0
