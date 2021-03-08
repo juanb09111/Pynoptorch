@@ -150,22 +150,43 @@ class myOwnDataset(torch.utils.data.Dataset):
 
 
 class testDataset(torch.utils.data.Dataset):
-    def __init__(self, root, transforms=None):
+    def __init__(self, root, transforms=None, return_next=False):
         self.root = root
         self.transforms = transforms
-        self.file_names_arr = os.listdir(root)
+        self.file_names_arr = sorted(os.listdir(root))
+        self.return_next = return_next
 
     def __getitem__(self, index):
+        
+        num_samples = len(self.file_names_arr)
 
         img = Image.open(os.path.join(self.root, self.file_names_arr[index]))
 
-        my_annotation = {}
-        my_annotation["file_name"] = self.file_names_arr[index]
+        annotation = {}
+        annotation["file_name"] = self.file_names_arr[index]
+
+        if self.return_next:
+            if index+1 < num_samples:
+                next_img = Image.open(os.path.join(self.root, self.file_names_arr[index+1]))
+
+                next_annotation = {}
+                next_annotation["file_name"] = self.file_names_arr[index+1]
+            else:
+                next_img = None
+                next_annotation = None
+            
 
         if self.transforms is not None:
             img = self.transforms(img)
 
-        return img, my_annotation
+        if self.transforms is not None and self.return_next and next_img is not None:
+            next_img = self.transforms(next_img)
+        
+        if self.return_next:
+            return img, next_img, annotation, next_annotation
+
+
+        return img, annotation
 
     def __len__(self):
         return len(self.file_names_arr)
@@ -188,11 +209,11 @@ def get_transform(use_augmentation=False):
 
 # create own Dataset
 
-def get_datasets(root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False, use_augmentation=False, aug_data_root=None):
+def get_datasets(root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False, use_augmentation=False, aug_data_root=None, return_next=False):
 
     if is_test_set:
         test_dataset = testDataset(
-            root, transforms=get_transform(use_augmentation=use_augmentation))
+            root, transforms=get_transform(), return_next=return_next)
         return test_dataset
 
     my_dataset = myOwnDataset(root=root,
@@ -223,11 +244,11 @@ def collate_fn(batch):
     return tuple(zip(*batch))
 
 
-def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False, use_augmentation=False, aug_data_root=None):
+def get_dataloaders(batch_size, root, annotation=None, split=False, val_size=0.20, semantic_masks_folder=None, is_test_set=False, use_augmentation=False, aug_data_root=None, return_next=False):
 
     if is_test_set:
         test_set = get_datasets(
-            root, is_test_set=is_test_set, use_augmentation=use_augmentation, aug_data_root=aug_data_root)
+            root, is_test_set=is_test_set, use_augmentation=use_augmentation, aug_data_root=aug_data_root, return_next=return_next)
         data_loader_test = torch.utils.data.DataLoader(test_set,
                                                        batch_size=batch_size,
                                                        shuffle=False,

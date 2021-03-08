@@ -55,7 +55,7 @@ def init_tracker(num_ids):
     # Init ids for first frame
     ids_arr = torch.tensor([torch.tensor(idx + start) for idx in range(num_ids)], device=temp_variables.DEVICE)
     
-    # Removre info from other frames if they exist
+    # Remove info from other frames if they exist
     for n in range(config.NUM_FRAMES):
         trk_ids_dict.pop("{}".format(n+1), None)
 

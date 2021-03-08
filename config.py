@@ -6,7 +6,7 @@ NUM_THING_CLASSES = 7 #excluding background
 NUM_STUFF_CLASSES = 2 #excluding background
 
 
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 MODEL = "EfficientPS"
 MODEL_WEIGHTS_FILENAME_PREFIX = "EfficientPS_weights"
 
@@ -116,7 +116,10 @@ IOU_TYPES = ["bbox", "segm"]
 # ----------INFERENCE ----------
 
 TEST_DIR = "data_val/"
+INFERENCE_OBJECT_TRACKING =  True
 
+LUCAS_KANADE_FIND_KEYPOINTS = False
+INFERENCE_CONFIDENCE = 0.5
 INSTANCE =  False
 SEMANTIC =  True
 PANOPTIC =  False

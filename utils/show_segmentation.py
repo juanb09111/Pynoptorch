@@ -10,6 +10,7 @@ import config
 import temp_variables
 import time
 import torch.nn.functional as F
+import cv2
 
 
 
@@ -106,9 +107,45 @@ def apply_panoptic_mask_gpu(image, mask):
     return image
 
 
-def save_fig(im, folder, file_name):
 
-    im = im.cpu().permute(1, 2, 0).numpy()
+def draw_bboxes(im, boxes, thing_categories, color_max_val=1, labels=None, ids=None):
+    im = cv2.UMat(im)
+    for i, box in enumerate(boxes):
+
+        top_left = (box[0], box[1])
+        bottom_right = (box[2], box[3])
+        cv2.rectangle(im,top_left, bottom_right, (0,0,0),6)
+
+        if labels != None:
+            label = labels[i].item()
+            label_name = thing_categories[label - 1]["name"]
+            labelSize = cv2.getTextSize(str(label_name), cv2.FONT_HERSHEY_COMPLEX, 0.5, 2)
+            _x1 = box[0]
+            _y1 = box[1]
+            _x2 = _x1 + int(labelSize[0][0])
+            _y2 = _y1 + int(labelSize[0][1])
+            cv2.rectangle(im,(_x1,_y1),(_x2,_y2),(0,color_max_val,0),cv2.FILLED)
+            cv2.putText(im, str(label_name), (_x1, _y2), cv2.FONT_HERSHEY_COMPLEX,0.5,(0,0,0),1)
+        
+        if ids != None:
+            obj_id = ids[i].item()
+            text = "id={}".format(obj_id)
+            labelSize = cv2.getTextSize(str(text), cv2.FONT_HERSHEY_COMPLEX, 0.5, 2)
+            _x1 = box[0]
+            _y1 = box[3]
+            _x2 = _x1 + int(labelSize[0][0])
+            _y2 = _y1 - int(labelSize[0][1])
+            cv2.rectangle(im,(_x1,_y1),(_x2,_y2),(0,color_max_val,0),cv2.FILLED)
+            cv2.putText(im, str(text), (_x1, _y1), cv2.FONT_HERSHEY_COMPLEX,0.5,(0,0,0),1)
+    return im
+
+def save_fig(im, folder, file_name, tensor_image = True, cv_umat=False):
+
+    if tensor_image:
+        im = im.cpu().permute(1, 2, 0).numpy()
+    
+    if cv_umat:
+        im = cv2.UMat.get(im)
     file_name_basename = os.path.basename(file_name)
     filename = os.path.splitext(file_name_basename)[0]
 
