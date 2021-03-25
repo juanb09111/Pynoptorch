@@ -18,7 +18,7 @@ from utils import get_datasets, lucas_kanade
 from utils.show_segmentation import apply_semantic_mask_gpu, apply_instance_masks, save_fig, draw_bboxes, apply_panoptic_mask_gpu
 from utils.panoptic_fusion import threshold_instances, sort_by_confidence, threshold_overlap, panoptic_canvas, panoptic_fusion, get_stuff_thing_classes
 from utils.tracker import get_tracked_objects, init_tracker
-
+import time 
 
 device = torch.device(
     'cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -60,7 +60,39 @@ def visualize_results(im, summary_batch, next_det, fname):
                      labels=next_det["labels"],
                      ids=next_det["ids"])
 
-    save_fig(im, "lucas_kanade/res_4", "{}".format(fname),
+    save_fig(im, "lucas_kanade/res_5", "{}".format(fname),
+             tensor_image=False, cv_umat=True)
+
+def visualize_results_untracked(im, summary_batch, next_det, untracked_det, fname):
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    bottomLeftCornerOfText = (30, 30)
+    fontScale = 0.4
+    fontColor = (color_max_val, color_max_val, color_max_val)
+    lineType = 1
+    text = ""
+    if summary_batch:
+        summary = summary_batch[0]
+        for obj in summary:
+            text = text + \
+                '{}: {}'.format(obj["name"], obj["count_obj"]) + " - "
+
+    im = draw_bboxes(im,
+                     next_det["boxes"],
+                     thing_categories,
+                     color_max_val=color_max_val,
+                     labels=next_det["labels"],
+                     ids=next_det["ids"])
+    
+    im = draw_bboxes(im,
+                     untracked_det["boxes"],
+                     thing_categories,
+                     color_max_val=color_max_val,
+                     labels=untracked_det["labels"],
+                     ids=untracked_det["ids"],
+                     box_color = (255,255,0))
+
+    save_fig(im, "lucas_kanade/res_6", "{}".format(fname),
              tensor_image=False, cv_umat=True)
 
 
@@ -90,17 +122,25 @@ def view_masks(model,
             print(".....{}......".format(file_names[1]))
             model.eval()
             with torch.no_grad():
-
+                # model_start = time.time()
                 outputs = model(images)
+                # model_end = time.time()
+                # print("model_time: ", model_end-model_start)
 
                 # Threshold preds----------
+                # thr_start = time.time()
+                
                 threshold_preds = threshold_instances(
                     outputs, threshold=config.CONFIDENCE_THRESHOLD)
                 threshold_preds = threshold_overlap(
                     threshold_preds, nms_threshold=config.NMS_THRESHOLD)
                 sorted_preds = sort_by_confidence(threshold_preds)
+                # thr_end = time.time()
 
+                # print("thr time: ", thr_end-thr_start)
                 # Lucas kanade-----------
+
+
                 prev_img_fname = os.path.join(os.path.dirname(
                     os.path.abspath(__file__)), config.TEST_DIR, file_names[0])
                 next_image_fname = os.path.join(os.path.dirname(
@@ -108,30 +148,49 @@ def view_masks(model,
                 prev_masks = sorted_preds[0]["masks"]
                 prev_boxes = sorted_preds[0]["boxes"]
 
-                pred_boxes = lucas_kanade.lucas_kanade_per_mask(
+                # lk_start = time.time()
+                pred_boxes, pred_masks = lucas_kanade.lucas_kanade_per_mask(
                     prev_img_fname,
                     next_image_fname,
                     prev_masks,
                     prev_boxes,
                     config.INFERENCE_CONFIDENCE,
-                    find_keypoints=False,
+                    find_keypoints=True,
                     save_as="{}_{}".format(frame, frame+1))
+                # lk_end = time.time()
+                # print("lk time: ", lk_end - lk_start)
                 # update prev boxes with lk-predicted boxes
                 sorted_preds[0]["boxes"] = pred_boxes
+                sorted_preds[0]["masks"] = pred_masks
 
                 # Object Tracking----------
                 prev_det = sorted_preds[0]
                 next_det = sorted_preds[1]
 
-                tracked_obj = get_tracked_objects(
+                # obj_trck_start = time.time() 
+                tracked_obj, untracked_indices, untracked_ids = get_tracked_objects(
                     prev_det["boxes"],
+                    prev_det["masks"],
                     next_det["boxes"],
                     prev_det["labels"],
                     next_det["labels"],
                     super_cat_indices,
-                    config.OBJECT_TRACKING_IOU_THRESHHOLD)
-
+                    config.OBJECT_TRACKING_IOU_THRESHHOLD,
+                    prev_img_fname,
+                    next_image_fname)
+                # obj_trck_end = time.time()
+                # print("obj_track: ", obj_trck_end - obj_trck_start)
                 next_det["ids"] = tracked_obj
+
+                # untracked objects
+                untracked_obj = {}
+                untracked_boxes = {"boxes": prev_det["boxes"][untracked_indices]}
+                untracked_labels = {"labels": prev_det["labels"][untracked_indices]}
+                untracked_ids = {"ids": untracked_ids}
+
+                untracked_obj.update(untracked_boxes)
+                untracked_obj.update(untracked_labels)
+                untracked_obj.update(untracked_ids)
 
                 if len(tracked_obj) > 0:
                     next_det["boxes"] = next_det["boxes"][:len(
@@ -159,7 +218,8 @@ def view_masks(model,
                             images[1], canvas).cpu().permute(1, 2, 0).numpy()
 
                     # Visualize results --------
-                    visualize_results(im, summary_batch, next_det, "{}".format(frame+1))
+                    # visualize_results(im, summary_batch, next_det, "{}".format(frame+1))
+                    visualize_results_untracked(im, summary_batch, next_det, untracked_obj, "{}".format(frame+1))
             # if config.BOUNDING_BOX_ONLY:
             #     im = next_image[0].cpu().permute(1, 2, 0).numpy()
             #     im = draw_bboxes(im,

@@ -108,13 +108,13 @@ def apply_panoptic_mask_gpu(image, mask):
 
 
 
-def draw_bboxes(im, boxes, thing_categories, color_max_val=1, labels=None, ids=None):
+def draw_bboxes(im, boxes, thing_categories, color_max_val=1, labels=None, ids=None, box_color=(0,0,0)):
     im = cv2.UMat(im)
     for i, box in enumerate(boxes):
 
         top_left = (box[0], box[1])
         bottom_right = (box[2], box[3])
-        cv2.rectangle(im,top_left, bottom_right, (0,0,0),6)
+        cv2.rectangle(im,top_left, bottom_right, box_color,6)
 
         if labels != None:
             label = labels[i].item()

@@ -15,10 +15,13 @@ images = []
 
 def get_number(file_name):
 
-    f_name= file_name.split("/")[-1].split("-")[-1]
+    # f_name= file_name.split("/")[-1].split("-")[-1]
+    f_name= file_name.split("/")[-1].split(".")[0].split("_")[0]
+    f_name = int(f_name) + 1000
+    f_name = str(f_name)
     return f_name
 
-for infile in sorted(glob.glob('{}/*.jpg'.format(data_dir)), key=get_number):
+for infile in sorted(glob.glob('{}/*.png'.format(data_dir)), key=get_number):
     images.append(os.path.basename(infile))
 
 
