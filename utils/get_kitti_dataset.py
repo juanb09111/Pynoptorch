@@ -233,10 +233,7 @@ class kittiDataset(torch.utils.data.Dataset):
         # print(sparse_depth_gt, img_filename, lidar_filename)
 
         if img_filename.split("/")[-1].split(".")[0] != sparse_depth_gt.split("/")[-1].split(".")[0] or img_filename.split("/")[-1].split(".")[0] != lidar_filename.split("/")[-1].split(".")[0]:
-            raise ValueError(
-                "file mismatch "
-                "specifying the number of output channels (assumed to be the "
-                "same for all the levels)")
+            raise ValueError("file mismatch ")
 
         calib_velo2cam = read_calib_file(self.calib_velo2cam)  # projection mat
         calib_cam2cam = read_calib_file(self.calib_cam2cam)  # projection mat
@@ -370,6 +367,12 @@ class kittiDataset(torch.utils.data.Dataset):
         # print(img.shape, imPts.shape, lidar_fov.shape, mask.shape, sparse_depth.shape, k_nn_indices.shape, gt_img.shape)
         # return img, imPts, lidar_fov, mask, sparse_depth, k_nn_indices, gt_img
 
+        # img: source image
+        # lidar_fov: lidar points within the field of view of the camera
+        # mask: boolean mask where the points are projected
+        # sparse_depth: lidar projected on to cam2
+        # k_nn_indices: indices of the knn
+        # sparse_depth_gt: sparse depth ground truth
         return img, lidar_fov, mask, sparse_depth, k_nn_indices, sparse_depth_gt
 
     def __len__(self):
