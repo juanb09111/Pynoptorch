@@ -40,7 +40,7 @@ class Two_D_Branch(nn.Module):
 
 
 class Three_D_Branch(nn.Module):
-    def __init__(self, n_feat, k_number, n_number):
+    def __init__(self, n_feat, k_number, n_number=None):
         super(Three_D_Branch, self).__init__()
 
         self.branch_3d_continuous = nn.Sequential(
@@ -72,7 +72,7 @@ class Three_D_Branch(nn.Module):
 
 
 class FuseBlock(nn.Module):
-    def __init__(self, nin, nout, k_number, n_number, extra_output_layer=False):
+    def __init__(self, nin, nout, k_number, n_number=None, extra_output_layer=False):
         super(FuseBlock, self).__init__()
 
         self.extra_output_layer = extra_output_layer
@@ -108,7 +108,7 @@ class FuseBlock(nn.Module):
 
 
 class FuseNet(nn.Module):
-    def __init__(self, k_number, n_number):
+    def __init__(self, k_number, n_number=None):
         super(FuseNet, self).__init__()
 
         self.sparse_conv = nn.Sequential(
@@ -130,18 +130,18 @@ class FuseNet(nn.Module):
         )
 
         self.fuse_conv = nn.Sequential(
-            FuseBlock(48, 64, k_number, n_number),
-            FuseBlock(64, 64, k_number, n_number, extra_output_layer=True), 
-            FuseBlock(64, 64, k_number, n_number, extra_output_layer=True), 
-            FuseBlock(64, 64, k_number, n_number, extra_output_layer=True), 
-            FuseBlock(64, 64, k_number, n_number, extra_output_layer=True), 
-            FuseBlock(64, 64, k_number, n_number, extra_output_layer=True), 
-            FuseBlock(64, 64, k_number, n_number, extra_output_layer=True), 
-            FuseBlock(64, 64, k_number, n_number, extra_output_layer=True), 
-            FuseBlock(64, 64, k_number, n_number, extra_output_layer=True), 
-            FuseBlock(64, 64, k_number, n_number, extra_output_layer=True), 
-            FuseBlock(64, 64, k_number, n_number, extra_output_layer=True), 
-            FuseBlock(64, 64, k_number, n_number, extra_output_layer=True)
+            FuseBlock(48, 64, k_number, n_number=n_number),
+            FuseBlock(64, 64, k_number, n_number=n_number, extra_output_layer=True), 
+            FuseBlock(64, 64, k_number, n_number=n_number, extra_output_layer=True), 
+            FuseBlock(64, 64, k_number, n_number=n_number, extra_output_layer=True), 
+            FuseBlock(64, 64, k_number, n_number=n_number, extra_output_layer=True), 
+            FuseBlock(64, 64, k_number, n_number=n_number, extra_output_layer=True), 
+            FuseBlock(64, 64, k_number, n_number=n_number, extra_output_layer=True), 
+            FuseBlock(64, 64, k_number, n_number=n_number, extra_output_layer=True), 
+            FuseBlock(64, 64, k_number, n_number=n_number, extra_output_layer=True), 
+            FuseBlock(64, 64, k_number, n_number=n_number, extra_output_layer=True), 
+            FuseBlock(64, 64, k_number, n_number=n_number, extra_output_layer=True), 
+            FuseBlock(64, 64, k_number, n_number=n_number, extra_output_layer=True)
         )
 
         self.output_layer = nn.Sequential(
@@ -155,7 +155,7 @@ class FuseNet(nn.Module):
         
 
 
-    def forward(self, img, sparse_depth, mask, coors, k_nn_indices, sparse_depth_gt):
+    def forward(self, img, sparse_depth, mask, coors, k_nn_indices, sparse_depth_gt=None):
         """
         inputs:
         img: input rgb (B x 3 x H x W)
@@ -189,59 +189,61 @@ class FuseNet(nn.Module):
 
         out = out.squeeze_(1)
 
-        # if self.training:
+        if self.training:
+            
+            # print("model training")
+            # print("training", out.max(), out.min())
+            mask_gt = torch.where(sparse_depth_gt > 0, torch.tensor((1), device=temp_variables.DEVICE, dtype=torch.float64), torch.tensor((0), device=temp_variables.DEVICE, dtype=torch.float64))
+            mask_gt = mask_gt.squeeze_(1)
+            mask_gt.requires_grad_(True)
+
+
+            
+            sparse_depth_gt = sparse_depth_gt.squeeze_(1) # remove C dimension there's only one
             
 
-        # print("training", out.max(), out.min())
-        mask_gt = torch.where(sparse_depth_gt > 0, torch.tensor((1), device=temp_variables.DEVICE, dtype=torch.float64), torch.tensor((0), device=temp_variables.DEVICE, dtype=torch.float64))
-        mask_gt = mask_gt.squeeze_(1)
-        mask_gt.requires_grad_(True)
+            # print(out.shape, sparse_depth_gt.shape, mask_gt.shape)
+            
+            loss = F.mse_loss(out*mask_gt, sparse_depth_gt*mask_gt)
+
+            
+            # out_copy = out[0]
+            # plt.imshow(out_copy.cpu().detach().numpy())
+            # print('out_copy')
+            # plt.show()
 
 
-        
-        sparse_depth_gt = sparse_depth_gt.squeeze_(1) # remove C dimension there's only one
-        
+            # print(out.max(), out.min())
 
-        # print(out.shape, sparse_depth_gt.shape, mask_gt.shape)
-        
-        loss = F.mse_loss(out*mask_gt, sparse_depth_gt*mask_gt)
+            # img_copy = img[0].permute(1,2,0)
+            # plt.imshow(img_copy.cpu().detach().numpy())
+            # print('img')
+            # plt.show()
 
-        
-        # out_copy = out[0]
-        # plt.imshow(out_copy.cpu().detach().numpy())
-        # print('out_copy')
-        # plt.show()
-
-
-        # print(out.max(), out.min())
-
-        # img_copy = img[0].permute(1,2,0)
-        # plt.imshow(img_copy.cpu().detach().numpy())
-        # print('img')
-        # plt.show()
-
-        # sparse_depth_gt_copy = sparse_depth_gt[0]
-        # print("shape", sparse_depth_gt_copy.cpu().detach().numpy().shape)
-        # plt.imshow(sparse_depth_gt_copy.cpu().detach().numpy())
-        # print('sparse_depth_gt_copy')
-        # plt.show()
+            # sparse_depth_gt_copy = sparse_depth_gt[0]
+            # print("shape", sparse_depth_gt_copy.cpu().detach().numpy().shape)
+            # plt.imshow(sparse_depth_gt_copy.cpu().detach().numpy())
+            # print('sparse_depth_gt_copy')
+            # plt.show()
 
 
-        # l1 = F.smooth_l1_loss(out_original_size, gt_img)
+            # l1 = F.smooth_l1_loss(out_original_size, gt_img)
 
-        # total_loss = l2 + l1*torch.tensor((config_kitti.LOSS_ALPHA), device=temp_variables.DEVICE)
-        # print("eval", out.min(), out.max())
-        # losses = {"depth_loss": l1}
-        losses = {"depth_loss": loss}
+            # total_loss = l2 + l1*torch.tensor((config_kitti.LOSS_ALPHA), device=temp_variables.DEVICE)
+            # print("eval", out.min(), out.max())
+            # losses = {"depth_loss": l1}
+            losses = {"depth_loss": loss}
 
-        # out_copy = out[0].squeeze(0)  
-        # plt.imshow(out_copy.cpu().detach().numpy())
-        # print('mask')
-        # plt.show()
-        # print("eval", out.min(), out.max())
-#     return out
+            # out_copy = out[0].squeeze(0)  
+            # plt.imshow(out_copy.cpu().detach().numpy())
+            # print('mask')
+            # plt.show()
+            # print("eval", out.min(), out.max())
+    #     return out
 
-        return losses, out
+            return losses, out
 
-        # else:
+        else:
+
+            return None, out
         #
