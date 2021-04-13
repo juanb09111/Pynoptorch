@@ -28,8 +28,7 @@ writer = SummaryWriter()
 def __update_model(trainer_engine, batch):
     model.train()
     optimizer.zero_grad()
-
-    imgs, lidar_fov, masks, sparse_depth, k_nn_indices, sparse_depth_gt = batch
+    imgs, lidar_fov, masks, sparse_depth, k_nn_indices, sparse_depth_gt, _ = batch
     # imgs, annotations = batch[0], batch[1]
 
     imgs = list(img for img in imgs)
@@ -111,7 +110,7 @@ def __log_validation_results(trainer_engine):
 
         model.eval()
         # torch.cuda.empty_cache()
-        for imgs, lidar_fov, masks, sparse_depth, k_nn_indices, sparse_depth_gt in data_loader_train:
+        for imgs, lidar_fov, masks, sparse_depth, k_nn_indices, sparse_depth_gt, _ in data_loader_train:
 
 
         # imgs, lidar_fov, masks, sparse_depth, k_nn_indices, sparse_depth_gt = next(
@@ -148,9 +147,9 @@ def __log_validation_results(trainer_engine):
 
                 img = imgs[idx]
                 sparse_depth_gt_sample = sparse_depth_gt[idx].cpu().numpy()
-
+                
                 writer.add_image("eval/src_img", img, state_epoch, dataformats="CHW")
-                writer.add_image("eval/gt", sparse_depth_gt_sample, state_epoch, dataformats="HW")
+                writer.add_image("eval/gt", sparse_depth_gt_sample, state_epoch, dataformats="CHW")
                 writer.add_image("eval/out", out, state_epoch, dataformats="HW")
             
             break
