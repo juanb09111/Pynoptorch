@@ -226,6 +226,7 @@ class kittiDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
 
         img_filename = self.source_imgs[index]  # rgb image
+        img_name = img_filename.split("/")[-1].split(".")[0]
         lidar_filename = self.lidar_files[index]  # lidar pointcloud
 
         # velo_2d_filename = self.data_velo_files[index] # 2d lidar points, sparse depth
@@ -373,7 +374,7 @@ class kittiDataset(torch.utils.data.Dataset):
         # sparse_depth: lidar projected on to cam2
         # k_nn_indices: indices of the knn
         # sparse_depth_gt: sparse depth ground truth
-        return img, lidar_fov, mask, sparse_depth, k_nn_indices, sparse_depth_gt
+        return img, lidar_fov, mask, sparse_depth, k_nn_indices, sparse_depth_gt, img_name
 
     def __len__(self):
         return len(self.source_imgs)
