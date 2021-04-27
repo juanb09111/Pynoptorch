@@ -75,7 +75,6 @@ class ContinuousConvolution(nn.Module):
             y1 = self.relu2(y1).view(B, N, K, C)  # reshape after mlp B x N x K x C
 
         if not self.training:
-            print("eval")
             # y1 = self.mlp_eval(y1).view(B, N, K, C)  # reshape after mlp B x N x K x C 
 
             y1 = self.linear1(y1)
